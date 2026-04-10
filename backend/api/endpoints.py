@@ -392,59 +392,52 @@ def predict_financial_health(user_id: str, db: Session = Depends(get_db)):
         "prediction_message": msg
     }
 
-@router.post("/ai/decision", response_model=schemas.AIDecisionResponse)
-def get_ai_decision(request: schemas.AIDecisionRequest, db: Session = Depends(get_db)):
-    # 1. Fetch current financial context
+@router.post("/ai/chat")
+def get_ai_chat(request: schemas.AIDecisionRequest, db: Session = Depends(get_db)):
     summary = get_summary(request.user_id, db)
-    prediction = predict_financial_health(request.user_id, db)
+    # Get recent transactions for context
+    recent_txs = db.query(models.Transaction).filter(models.Transaction.user_id == request.user_id).order_by(desc(models.Transaction.date)).limit(10).all()
+    tx_context = "\n".join([f"{t.date.strftime('%Y-%m-%d')}: {t.type} of ₹{t.amount} in {t.category}" for t in recent_txs])
     
-    financial_context = f"""
-    Current Balance: ₹{summary['balance']:,}
-    Current Debt/Burn: ₹{prediction['net_daily']:,}/day
-    Status: {summary['risk_flags']}
+    prompt = f"""
+    You are MAYA, a powerful and elite AI CFO. 
+    You are currently chatting with the user while the heavy Supervity Decision Engine is running a deep risk analysis on their query.
+
+    Financial Context:
+    Balance: ₹{summary['balance']}
+    Income: ₹{summary['total_income']}
+    Expenses: ₹{summary['total_expenses']}
+
+    Recent Transactions:
+    {tx_context}
+
+    User Question: "{request.question}"
+
+    Instructions:
+    1. Acknowledge that you are initiating a deep Supervity Analysis.
+    2. Give a quick, conversational, but professional insight based on their data.
+    3. Keep it brief (max 3-4 sentences). 
+    4. Maintain the persona of a high-end financial advisor.
+    5. Be bold, direct, and elite.
     """
 
-    # 2. Check for small talk / greetings
-    small_talk_keywords = ["hi", "hello", "hey", "who are you", "what can you do", "help", "greet"]
-    is_small_talk = any(kw in request.question.lower() for kw in small_talk_keywords) and len(request.question.split()) < 5
-
-    if is_small_talk:
-        # Groq handles small talk naturally
-        prompt = f"You are MAYA, an Elite AI CFO. Give a short, professional, yet punchy greeting to the user. User said: '{request.question}'"
+    try:
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "system", "content": "You are MAYA, an elite AI CFO."}, {"role": "user", "content": prompt}]
         )
-        return {"decision": response.choices[0].message.content}
+        return {"response": response.choices[0].message.content}
+    except Exception as e:
+        print(f"❌ [CHAT ERROR] {e}")
+        return {"response": "I've received your query. Initiating deep diagnostic analysis now..."}
 
-    # 3. Handle financial analysis via Supervity (Deep Engine)
+@router.post("/ai/decision", response_model=schemas.AIDecisionResponse)
+def get_ai_decision(request: schemas.AIDecisionRequest, db: Session = Depends(get_db)):
+    summary = get_summary(request.user_id, db)
+    financial_summary = f"Balance: ₹{summary['balance']}, Total Income: ₹{summary['total_income']}, Total Expenses: ₹{summary['total_expenses']}"
     from core.supervity import SupervityAgent
-    raw_intelligence = SupervityAgent.get_decision(request.question, financial_context)
-
-    # 4. Use Groq to make Supervity output 'relatable' and conversational
-    maya_prompt = f"""
-    You are MAYA, the Elite AI CFO. 
-    A deep intelligence engine (Supervity) has provided this raw financial analysis for the user:
-    ---
-    {raw_intelligence}
-    ---
-    
-    User asked: '{request.question}'
-    
-    Task:
-    - Transform the raw intelligence into a relatable, conversational, yet extremely professional and strategic response.
-    - Keep the core facts (Verdict, Logic, Actions) but deliver them as if you are speaking directly to the business owner.
-    - Be punchy and direct. Avoid generic corporate fluff.
-    - If the analysis is critical, sound like an authority. 
-    - Max 4-5 sentences.
-    """
-    
-    maya_response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": maya_prompt}]
-    )
-    
-    return {"decision": maya_response.choices[0].message.content}
+    response_text = SupervityAgent.get_decision(request.question, financial_summary)
+    return {"decision": response_text}
 
 def auto_maya_decision(user_id: str, db: Session):
     summary = get_summary(user_id, db)

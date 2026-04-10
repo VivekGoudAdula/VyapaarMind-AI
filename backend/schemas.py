@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 class TransactionBase(BaseModel):
@@ -47,7 +47,7 @@ class AIDecisionRequest(BaseModel):
     question: str
 
 class AIDecisionResponse(BaseModel):
-    decision: str
+    decision: Any
 
 class PredictionResponse(BaseModel):
     status: str
