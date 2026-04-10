@@ -88,7 +88,15 @@ class Decision(DecisionBase):
 class SimulateRequest(BaseModel):
     amount: float
 
+class SimulationAnalysis(BaseModel):
+    verdict: str
+    risk: str
+    reason: List[str]
+    action: str
+    alternative: str
+
 class SimulateResponse(BaseModel):
     new_balance: float
     runway: float
     risk: str
+    analysis: Optional[SimulationAnalysis] = None

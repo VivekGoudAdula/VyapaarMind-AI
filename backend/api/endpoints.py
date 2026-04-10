@@ -12,15 +12,18 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from groq import Groq
 
-load_dotenv("../.env")
+from dotenv import load_dotenv
+import os
+
+# Use absolute path to ensure .env is loaded regardless of execution context
+env_path = os.path.join(os.path.dirname(__file__), "../../.env")
+load_dotenv(env_path, override=True)
 
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", "gsk_test_key_here"))
 
 router = APIRouter()
 
 def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
-    load_dotenv("../.env", override=True)
-    
     if severity == "High":
         full_subject = f"🚨 CRITICAL: {alert_count} Financial Risks Detected - VyapaarMind"
     elif severity == "Positive":
@@ -54,7 +57,7 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
     except Exception as e:
         print(f"❌ [MAIL ERROR] {e}")
 
-def run_alert_engine(user_id: str, db: Session):
+def run_alert_engine(user_id: str, db: Session, last_tx: models.Transaction = None):
     summary = get_summary(user_id, db)
     prediction = predict_financial_health(user_id, db)
 
@@ -67,6 +70,15 @@ def run_alert_engine(user_id: str, db: Session):
             "message": "Balance below ₹20,000. Immediate attention required.",
             "severity": "High",
             "color": "#ef4444"
+        })
+
+    # NEW: Detect Huge Single Loss / Large Transaction
+    if last_tx and last_tx.type == "expense" and last_tx.amount >= 10000:
+        alerts.append({
+            "title": "Huge Transaction Detected",
+            "message": f"Significant outflow of ₹{last_tx.amount:,.0f} detected in category '{last_tx.category}'.",
+            "severity": "High",
+            "color": "#b91c1c"
         })
 
     if summary["total_expenses"] > summary["total_income"] and summary["total_income"] > 0:
@@ -107,28 +119,29 @@ def run_alert_engine(user_id: str, db: Session):
 
     # 2. Save and De-duplicate
     print(f"[ENGINE] Checking alerts for {user_id}...")
-    new_alerts_to_send = []
-    
-    # Get existing active alerts for this user to avoid spamming
-    existing_messages = {a[0] for a in db.query(models.Alert.message).filter(models.Alert.user_id == user_id).all()}
-    print(f"[ENGINE] Found {len(existing_messages)} existing alerts in DB.")
+    # 3. Check for high severity to trigger MAYA (Check all active signals, even if already in DB)
+    has_high_risk = any(a["severity"] == "High" for a in alerts)
+    if has_high_risk:
+        print(f"[ENGINE] HIGH RISK ACTIVE for {user_id}. TRIGGERING MAYA ANALYSIS...")
+        auto_maya_decision(user_id, db)
+    else:
+        print(f"[ENGINE] No high risks found for {user_id}. Maya remains dormant.")
 
+    # 4. Save and De-duplicate for email dispatch
+    existing_messages = {a[0] for a in db.query(models.Alert.message).filter(models.Alert.user_id == user_id).all()}
+    
     for alert in alerts:
         if alert["message"] not in existing_messages:
             db_alert = models.Alert(user_id=user_id, message=alert["message"], severity=alert["severity"])
             db.add(db_alert)
-            new_alerts_to_send.append(alert)
     
-    if not new_alerts_to_send:
-        print("[ENGINE] No new signals detected. Skipping email dispatch (De-duplication Active).")
-        db.commit() # Just in case
-        return []
-
-    print(f"[ENGINE] {len(new_alerts_to_send)} NEW SIGNALS DETECTED! Preparing dispatch...")
     db.commit()
-    alerts = new_alerts_to_send # only email the new things
 
-    # 3. Build Bundled HTML Email
+    # CRITICAL: User requested 'mails mandatory for everything'. 
+    # We will dispatch the email for ALL active alerts, not just 'new' ones.
+    print(f"[ENGINE] {len(alerts)} SIGNALS ACTIVE! Preparing dispatch...")
+    
+    # 5. Build Bundled HTML Email
     user = db.query(models.User).filter(models.User.firebase_uid == user_id).first()
     user_email = user.email if user else "test@example.com"
     user_name = user.name if user else "Vyapaari"
@@ -143,39 +156,50 @@ def run_alert_engine(user_id: str, db: Session):
         """
 
     main_severity = "High" if any(a["severity"] == "High" for a in alerts) else "Positive"
-    
-    if main_severity == "High":
-        print(f"[ENGINE] CRITICAL RISK DETECTED. TRIGGERING MAYA AUTO-DECISION...")
-        auto_maya_decision(user_id, db)
-
     header_color = "#ef4444" if main_severity == "High" else "#10b981"
 
     email_template = f"""
     <html>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 40px; margin: 0;">
-        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
-            <div style="background-color: {header_color}; padding: 40px; text-align: center; color: white;">
-                <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase;">VyapaarMind AI</h1>
-                <p style="margin: 10px 0 0 0; opacity: 0.9; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.1em;">Intelligence Notification System</p>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f9; padding: 40px; margin: 0;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e1e8ed;">
+            <div style="background-color: #0f172a; padding: 30px; text-align: left; border-bottom: 4px solid {header_color};">
+                <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: white; letter-spacing: 0.05em; text-transform: uppercase;">VyapaarMind AI</h1>
+                <p style="margin: 5px 0 0 0; color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.2em;">Autonomous Intelligence Notification</p>
             </div>
             <div style="padding: 40px;">
-                <h2 style="color: #1e293b; margin-top: 0;">Hello {user_name},</h2>
-                <p style="color: #475569; font-size: 16px; margin-bottom: 30px;">Our autonomous engine has detected significant updates in your financial status:</p>
-                {alerts_html}
-                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-                    <a href="http://localhost:5173/dashboard" style="display: inline-block; background-color: {header_color}; color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 14px;">View Command Center</a>
+                <p style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;">Security Advisory</p>
+                <h2 style="color: #1e293b; margin-top: 0; font-size: 22px; font-weight: 800;">Financial Status Update</h2>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 30px;">
+                    Dear {user_name},<br><br>
+                    Our autonomous monitoring system has detected significant activity within your business ledger. Below is the verified intelligence report for your immediate review:
+                </p>
+                
+                <div style="margin-bottom: 30px;">
+                   {alerts_html}
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; border-radius: 8px; margin-top: 20px;">
+                    <p style="margin: 0; color: #1e293b; font-size: 14px; font-weight: 700;">Strategic Recommendation</p>
+                    <p style="margin: 10px 0 0 0; color: #64748b; font-size: 13px; line-height: 1.5;">
+                        We recommend accessing the central command center for a full risk-assessment and to view MAYA's latest strategic interventions.
+                    </p>
+                    <div style="margin-top: 20px;">
+                        <a href="http://localhost:5173/dashboard" style="display: inline-block; background-color: #0f172a; color: white; padding: 14px 28px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Access Command Center</a>
+                    </div>
                 </div>
             </div>
-            <div style="background-color: #f1f5f9; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
-                © 2026 VyapaarMind AI. All rights reserved.<br>
-                Strategic intelligence for the modern entrepreneur.
+            <div style="background-color: #ffffff; padding: 30px; border-top: 1px solid #e1e8ed; text-align: left; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+                <p style="margin: 0 0 10px 0; font-weight: 700; color: #64748b; text-transform: uppercase;">Confidentiality Notice</p>
+                This is an automated advisory from VyapaarMind AI. This communication contains privileged information intended solely for the registered user. If you are not the intended recipient, please notify us immediately. 
+                <br><br>
+                © 2026 VyapaarMind AI Financial Systems. All rights reserved. Registered Office: Bengaluru, India.
             </div>
         </div>
     </body>
     </html>
     """
 
-    print(f"[SYSTEM] BUNDLED EMAIL SENT TO: {user_email}")
+    print(f"[SYSTEM] ATTEMPTING EMAIL DISPATCH TO: {user_email}")
     send_email(user_email, "", email_template, len(alerts), main_severity)
     return alerts
 
@@ -214,7 +238,7 @@ def add_transaction(transaction: schemas.TransactionCreate, db: Session = Depend
     db.refresh(db_transaction)
 
     # Auto-trigger Engine
-    run_alert_engine(transaction.user_id, db)
+    run_alert_engine(transaction.user_id, db, db_transaction)
     
     return {"status": "success", "message": "Transaction added"}
 
@@ -358,7 +382,7 @@ def auto_maya_decision(user_id: str, db: Session):
 
     try:
         response = groq_client.chat.completions.create(
-            model="mixtral-8x7b-32768",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -390,25 +414,82 @@ def latest_decision(user_id: str, db: Session = Depends(get_db)):
 @router.post("/simulate/{user_id}", response_model=schemas.SimulateResponse)
 def simulate(user_id: str, request: schemas.SimulateRequest, db: Session = Depends(get_db)):
     summary = get_summary(user_id, db)
+    prediction = predict_financial_health(user_id, db)
 
     balance = summary["balance"]
-    expense = summary["total_expenses"]
+    net_daily = prediction["net_daily"]
+    is_cashflow_positive = net_daily >= 0
 
-    # Simple burn calculation
-    daily_burn = expense / 30 if expense > 0 else 1
+    # When cashflow is positive, there is no burn — runway is essentially infinite
+    # Only calculate burn-based runway when the business is burning cash
+    if not is_cashflow_positive:
+        daily_burn = abs(net_daily)
+        new_balance = balance - request.amount
+        runway = max(0, new_balance / daily_burn) if daily_burn > 0 else 999
+    else:
+        new_balance = balance - request.amount
+        # For cashflow-positive businesses, runway is based on whether the spend
+        # pushes balance negative. If balance stays positive, runway is healthy.
+        if new_balance < 0:
+            runway = 0
+        else:
+            runway = 999  # Effectively infinite since income > expenses
 
-    new_balance = balance - request.amount
-    runway = new_balance / daily_burn if daily_burn > 0 else 999
-
-    if runway <= 5:
+    if new_balance < 0:
+        risk = "HIGH"
+    elif runway <= 5:
         risk = "HIGH"
     elif runway <= 15:
         risk = "MEDIUM"
     else:
         risk = "LOW"
 
+    # AI Scenario Analysis Prompt (JSON focus)
+    cashflow_status = f"POSITIVE (surplus ₹{net_daily:,.2f}/day)" if is_cashflow_positive else f"NEGATIVE (burning ₹{abs(net_daily):,.2f}/day)"
+    prompt = f"""
+    You are MAYA, an AI CFO. Analyze this business scenario and provide a STACKED DECISION.
+    
+    DATA:
+    Action: Spend ₹{request.amount:,.2f}
+    Current Balance: ₹{balance:,.2f}
+    New Balance: ₹{new_balance:,.2f}
+    Cashflow Status: {cashflow_status}
+    New Runway: {"Healthy (cashflow positive)" if runway >= 999 else f"{runway:,.1f} days"}
+    Risk Level: {risk}
+
+    Return EXACTLY this JSON structure:
+    {{
+      "verdict": "REJECT" or "APPROVE",
+      "risk": "{risk}",
+      "reason": ["Reason 1", "Reason 2", "Reason 3"],
+      "action": "One line direct instruction",
+      "alternative": "One line smart safer option"
+    }}
+
+    Rules: 
+    - Max 3 reasons. 
+    - No preamble. 
+    - Verdict must be uppercase. 
+    - If cashflow is POSITIVE and new balance > 0, verdict should be APPROVE.
+    - If new balance < 0 or runway is critically low, verdict should be REJECT.
+    - Final response must be ONLY valid JSON.
+    """
+
+    ai_analysis = None
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        import json
+        ai_analysis = json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"❌ [SIM AI ERROR] {e}")
+
     return {
         "new_balance": float(new_balance),
         "runway": float(round(runway, 1)),
-        "risk": risk
+        "risk": risk,
+        "analysis": ai_analysis
     }

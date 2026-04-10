@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { TrendingUp, TrendingDown, Wallet, AlertCircle, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
 import { 
@@ -6,6 +7,7 @@ import {
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import LiveSMSFeed from '../components/LiveSMSFeed';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -24,6 +26,7 @@ export default function Dashboard() {
   const [simAmount, setSimAmount] = useState("");
   const [simResult, setSimResult] = useState<any>(null);
   const [simLoading, setSimLoading] = useState(false);
+  const [showSimModal, setShowSimModal] = useState(false);
 
   const fetchSummary = () => {
     if (!user?.uid) return;
@@ -66,13 +69,13 @@ export default function Dashboard() {
           const isFresh = (new Date().getTime() - new Date(data[0].created_at).getTime()) < 30000;
           if (isFresh) {
             setActiveAlert(data[0]);
-            
-            // Trigger Maya if high risk detected
-            if (data[0].severity === "High") {
-              triggerMayaAnalysis();
-            }
-
             setTimeout(() => setActiveAlert(null), 3000);
+          }
+          
+          // ALWAYS trigger Maya check if high risk exists and we aren't already showing one
+          const hasHighRisk = data.some((a: any) => a.severity === "High");
+          if (hasHighRisk && !autoDecision && !loadingMaya) {
+            triggerMayaAnalysis();
           }
         }
       })
@@ -92,6 +95,30 @@ export default function Dashboard() {
         })
         .catch(() => setLoadingMaya(false));
     }, 2000);
+  };
+
+  const playVerdictSound = (verdict: string) => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      ctx.resume();
+      const baseFreq = verdict === 'REJECT' ? 220 : 520;
+      const endFreq = verdict === 'REJECT' ? 110 : 660;
+      // Stack 4 detuned oscillators for maximum volume
+      [0, 1, -1, 2].forEach(detune => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + 0.3);
+        osc.detune.setValueAtTime(detune * 8, ctx.currentTime);
+        gain.gain.setValueAtTime(3.0, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+      });
+    } catch {}
   };
 
   const runSimulation = async () => {
@@ -115,6 +142,8 @@ export default function Dashboard() {
       });
       const data = await res.json();
       setSimResult({ ...data, scenario: simAmount });
+      setShowSimModal(true);
+      if (data.analysis?.verdict) playVerdictSound(data.analysis.verdict);
     } catch (err) {
       console.error(err);
     } finally {
@@ -139,6 +168,16 @@ export default function Dashboard() {
     return () => window.removeEventListener('transaction-updated', handleUpdate);
   }, [user]);
 
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (showSimModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showSimModal]);
+
   if (loading || !summary) return (
     <div className="flex flex-col items-center justify-center h-full gap-4">
       <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
@@ -147,7 +186,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {/* LATEST ALERT BANNER - AUTO HIDES IN 3 SECS */}
       <AnimatePresence>
         {activeAlert && (
@@ -175,6 +214,19 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      {/* TOP SECTION: Welcome + Live SMS Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="lg:col-span-2">
+          <div className="mb-0">
+            <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">Command Center</h1>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Autonomous Financial Intelligence & Live Ingestion</p>
+          </div>
+        </div>
+        <div className="lg:col-span-1">
+          <LiveSMSFeed />
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <StatCard 
@@ -182,7 +234,7 @@ export default function Dashboard() {
           value={`₹${summary.total_income.toLocaleString()}`} 
           change="+12.5%" 
           trend="up"
-          icon={<TrendingUp className="w-6 h-6 text-emerald-400" />}
+          icon={<TrendingUp className="w-5 h-5 text-emerald-400" />}
           color="emerald"
         />
         <StatCard 
@@ -190,7 +242,7 @@ export default function Dashboard() {
           value={`₹${summary.total_expenses.toLocaleString()}`} 
           change="+4.2%" 
           trend="down"
-          icon={<TrendingDown className="w-6 h-6 text-red-400" />}
+          icon={<TrendingDown className="w-5 h-5 text-red-400" />}
           color="red"
         />
         <StatCard 
@@ -198,7 +250,7 @@ export default function Dashboard() {
           value={`₹${summary.balance.toLocaleString()}`} 
           change="+8.1%" 
           trend="up"
-          icon={<Wallet className="w-6 h-6 text-indigo-400" />}
+          icon={<Wallet className="w-5 h-5 text-indigo-400" />}
           color="indigo"
         />
       </div>
@@ -211,23 +263,23 @@ export default function Dashboard() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-slate-900/50 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-2xl relative overflow-hidden group shadow-2xl h-full flex flex-col justify-center"
+              className="bg-slate-900/50 border border-white/10 rounded-[2rem] p-5 backdrop-blur-2xl relative overflow-hidden group shadow-2xl h-full flex flex-col justify-center"
             >
               <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[80px] rounded-full -mr-20 -mt-20 group-hover:bg-indigo-500/10 transition-all duration-700" />
               
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 relative z-10">
-                <div className="flex items-center gap-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-5">
                   <div className={cn(
-                    "w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:scale-110",
+                    "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:scale-110",
                     prediction.status === 'safe' ? "bg-emerald-500/20 text-emerald-400 shadow-emerald-500/20" : 
                     prediction.status === 'warning' ? "bg-amber-500/20 text-amber-500 shadow-amber-500/20" : 
                     "bg-red-500/20 text-red-500 shadow-red-500/20"
                   )}>
-                    {prediction.status === 'safe' ? <CheckCircle2 className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
+                    {prediction.status === 'safe' ? <CheckCircle2 className="w-7 h-7" /> : <AlertCircle className="w-7 h-7" />}
                   </div>
                   <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <h4 className="text-xl font-black tracking-tight uppercase text-white">🔮 Financial Prediction</h4>
+                    <div className="flex items-center gap-3 mb-0.5">
+                      <h4 className="text-lg font-black tracking-tight uppercase text-white">🔮 Financial Prediction</h4>
                       <span className={cn(
                         "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
                         prediction.status === 'safe' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : 
@@ -262,13 +314,13 @@ export default function Dashboard() {
           )}
         </div>
         <div className="lg:col-span-1">
-          <div className="bg-white/5 border border-white/10 rounded-[2.5rem] p-6 backdrop-blur-2xl shadow-2xl h-full">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-4 backdrop-blur-2xl shadow-2xl h-full">
+            <div className="flex items-center justify-between mb-4">
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Live Intelligence</h4>
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
             
-            <div className="space-y-4 max-h-[160px] overflow-y-auto pr-2 scrollbar-none">
+            <div className="space-y-3 max-h-[140px] overflow-y-auto pr-2 scrollbar-none">
               {alerts && alerts.length > 0 ? (
                 alerts.slice(0, 5).map((alert: any, idx: number) => (
                   <div key={idx} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 group hover:bg-white/10 transition-colors">
@@ -295,9 +347,9 @@ export default function Dashboard() {
       </div>
 
       {/* FUTURE SIMULATOR UI */}
-      <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-[2.5rem] p-8 backdrop-blur-2xl shadow-2xl mt-8">
-        <h4 className="text-xl font-black uppercase tracking-tight text-white mb-6 flex items-center gap-3">
-          <TrendingUp className="w-6 h-6 text-indigo-400" />
+      <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-[2rem] p-6 backdrop-blur-2xl shadow-2xl mt-8">
+        <h4 className="text-lg font-black uppercase tracking-tight text-white mb-5 flex items-center gap-3">
+          <TrendingUp className="w-5 h-5 text-indigo-400" />
           Future Runway Simulator
         </h4>
         
@@ -321,34 +373,161 @@ export default function Dashboard() {
         </div>
 
         <AnimatePresence>
-          {simResult && (
+          {simLoading && (
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-white/5 rounded-[2rem] border border-white/10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mt-6 p-6 bg-indigo-500/10 rounded-[2rem] border border-indigo-500/20 flex items-center justify-center gap-4 text-indigo-400 font-black uppercase tracking-widest text-xs animate-pulse"
             >
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">New Balance</p>
-                <p className="text-2xl font-black text-white">₹{simResult.new_balance.toLocaleString()}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Est. Runway</p>
-                <p className="text-2xl font-black text-white">{simResult.runway} Days</p>
-              </div>
-              <div className="space-y-1 text-right">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Scenario Risk</p>
-                <p className={`text-2xl font-black ${
-                  simResult.risk === "HIGH" ? "text-red-400" :
-                  simResult.risk === "MEDIUM" ? "text-yellow-400" :
-                  "text-emerald-400"
-                }`}>
-                  {simResult.risk}
-                </p>
-              </div>
+              <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              MAYA is evaluating your financial future…
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* AI SCENARIO ANALYSIS MODAL — rendered via Portal to escape stacking context */}
+      {createPortal(
+        (<AnimatePresence>
+          {showSimModal && simResult && simResult.analysis && (
+            <div
+              className="fixed flex items-center justify-center p-4"
+              style={{ inset: 0, zIndex: 99999, background: 'rgba(2,6,23,0.95)' }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowSimModal(false); }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.88, y: 32 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 20 }}
+                transition={{ type: "spring", stiffness: 340, damping: 26, mass: 0.8 }}
+                className={cn(
+                  "relative w-full max-w-[950px] bg-[#080D1A] border rounded-[2rem] overflow-hidden",
+                  simResult.analysis.verdict === 'REJECT'
+                    ? "border-red-500/20 shadow-[0_0_60px_-10px_rgba(239,68,68,0.3),0_40px_80px_-20px_rgba(0,0,0,0.7)]"
+                    : "border-emerald-500/20 shadow-[0_0_60px_-10px_rgba(16,185,129,0.3),0_40px_80px_-20px_rgba(0,0,0,0.7)]"
+                )}
+              >
+                {/* Background glow */}
+                <div className={cn(
+                  "absolute inset-0 opacity-10 pointer-events-none",
+                  simResult.analysis.verdict === 'REJECT'
+                    ? "bg-gradient-to-br from-red-600 via-transparent to-transparent"
+                    : "bg-gradient-to-br from-emerald-600 via-transparent to-transparent"
+                )} />
+
+                <div className="relative z-10 grid grid-cols-[260px_1fr] divide-x divide-white/5">
+                  {/* ── LEFT PANEL: Verdict + Metrics ── */}
+                  <div className={cn(
+                    "flex flex-col items-center justify-center gap-5 px-6 py-8 text-center",
+                    simResult.analysis.verdict === 'REJECT'
+                      ? "bg-gradient-to-b from-red-500/10 to-transparent"
+                      : "bg-gradient-to-b from-emerald-500/10 to-transparent"
+                  )}>
+                    <div className={cn(
+                      "w-16 h-16 rounded-2xl flex items-center justify-center border shadow-lg",
+                      simResult.analysis.verdict === 'REJECT'
+                        ? "bg-red-500/20 text-red-400 border-red-500/30 shadow-red-500/20"
+                        : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/20"
+                    )}>
+                      {simResult.analysis.verdict === 'REJECT'
+                        ? <AlertCircle className="w-8 h-8" />
+                        : <CheckCircle2 className="w-8 h-8" />}
+                    </div>
+
+                    <div>
+                      <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] mb-1">MAYA Verdict</p>
+                      <motion.h2
+                        initial={{ scale: 0.7, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.15, type: "spring", stiffness: 400, damping: 20 }}
+                        className={cn(
+                          "text-4xl font-black tracking-tighter uppercase leading-none",
+                          simResult.analysis.verdict === 'REJECT'
+                            ? "text-red-500 drop-shadow-[0_0_25px_rgba(239,68,68,0.7)]"
+                            : "text-emerald-500 drop-shadow-[0_0_25px_rgba(16,185,129,0.7)]"
+                        )}
+                      >
+                        {simResult.analysis.verdict}
+                      </motion.h2>
+                      <p className="text-[9px] font-black text-slate-500 mt-2 leading-tight">
+                        ⚠️ Affects your next<br/>30 days of survival
+                      </p>
+                    </div>
+
+                    <div className="w-full h-px bg-white/5" />
+
+                    <div className="space-y-3 w-full">
+                      <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">New Balance</p>
+                        <p className={cn("text-lg font-black mt-0.5",
+                          simResult.new_balance < 0 ? "text-red-400" : "text-white"
+                        )}>₹{simResult.new_balance.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">New Runway</p>
+                        <p className="text-lg font-black text-white mt-0.5">{simResult.runway} Days</p>
+                      </div>
+                      <div className={cn(
+                        "p-3 rounded-2xl border text-center",
+                        simResult.risk === 'HIGH' ? "bg-red-500/10 border-red-500/20" :
+                        simResult.risk === 'MEDIUM' ? "bg-amber-500/10 border-amber-500/20" :
+                        "bg-emerald-500/10 border-emerald-500/20"
+                      )}>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Risk Level</p>
+                        <p className={cn("text-lg font-black mt-0.5",
+                          simResult.risk === 'HIGH' ? "text-red-400" :
+                          simResult.risk === 'MEDIUM' ? "text-amber-400" : "text-emerald-400"
+                        )}>{simResult.risk}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── RIGHT PANEL: Why + Action + Alternative ── */}
+                  <div className="flex flex-col gap-4 px-7 py-8">
+                    {/* Reasons */}
+                    <div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Why this decision?</p>
+                      <div className="space-y-2">
+                        {simResult.analysis.reason.map((r: string, i: number) => (
+                          <div key={i} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
+                            <div className={cn(
+                              "w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0",
+                              simResult.analysis.verdict === 'REJECT' ? "bg-red-500/60" : "bg-emerald-500/60"
+                            )} />
+                            <p className="text-[11px] font-semibold text-slate-300 leading-tight">{r}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* MAYA Instruction */}
+                    <div className="p-4 bg-red-500/8 border border-red-500/15 rounded-2xl">
+                      <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1.5">MAYA Instruction</p>
+                      <p className="text-sm font-black text-white uppercase italic leading-snug">"{simResult.analysis.action}"</p>
+                    </div>
+
+                    {/* Smarter Move */}
+                    <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
+                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1.5">💡 Smarter Move</p>
+                      <p className="text-sm font-semibold text-slate-300 leading-snug">{simResult.analysis.alternative}</p>
+                    </div>
+
+                    {/* Confirm Button */}
+                    <button
+                      onClick={() => setShowSimModal(false)}
+                    className="mt-auto w-full py-4 bg-white/8 hover:bg-white/15 text-white font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl transition-all border border-white/5 active:scale-[0.98]"
+                  >
+                    Confirm Awareness
+                  </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>), document.body
+      )}
+
 
       {/* MAYA AUTO DECISION CARD */}
       <AnimatePresence>
@@ -359,44 +538,44 @@ export default function Dashboard() {
             className="relative"
           >
             {loadingMaya && (
-              <div className="flex items-center gap-4 text-indigo-400 font-black uppercase tracking-widest text-xs animate-pulse p-10 bg-indigo-500/5 rounded-[3rem] border border-indigo-500/20">
-                <span className="text-3xl">🧠</span>
+              <div className="flex items-center gap-4 text-indigo-400 font-black uppercase tracking-widest text-xs animate-pulse p-6 bg-indigo-500/5 rounded-[2.5rem] border border-indigo-500/20">
+                <span className="text-2xl">🧠</span>
                 MAYA is analyzing your financial future and calculating risks...
               </div>
             )}
 
             {autoDecision && !loadingMaya && (
-              <div className="p-10 bg-gradient-to-br from-red-500/10 via-slate-900 to-slate-900 border-2 border-red-500/30 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+              <div className="p-6 bg-gradient-to-br from-red-500/10 via-slate-900 to-slate-900 border-2 border-red-500/30 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-red-500/5 blur-[100px] rounded-full -mr-40 -mt-40" />
                 
                 <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center border border-red-500/30 shadow-lg shadow-red-500/20">
-                        <span className="text-3xl">💀</span>
+                      <div className="w-12 h-12 bg-red-500/20 rounded-2xl flex items-center justify-center border border-red-500/30 shadow-lg shadow-red-500/20">
+                        <span className="text-2xl">💀</span>
                       </div>
                       <div>
-                        <h2 className="text-red-400 text-3xl font-black tracking-tight uppercase">MAYA AUTO DECISION</h2>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Autonomous Strategic Intervention</p>
+                        <h2 className="text-red-400 text-xl font-black tracking-tight uppercase leading-tight">MAYA AUTO DECISION</h2>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Autonomous Strategic Intervention</p>
                       </div>
                     </div>
                     <button 
                       onClick={() => setAutoDecision(null)}
-                      className="text-slate-500 hover:text-white transition-colors"
+                      className="text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
                     >
                       Dismiss
                     </button>
                   </div>
                   
-                  <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5 space-y-6">
-                    <p className="text-white text-xl font-bold leading-relaxed whitespace-pre-line italic">
+                  <div className="bg-white/5 p-6 rounded-[1.5rem] border border-white/5 space-y-4">
+                    <p className="text-white text-base font-bold leading-snug whitespace-pre-line italic">
                       "{autoDecision.result}"
                     </p>
                   </div>
 
-                  <div className="mt-8 flex items-center gap-6">
+                  <div className="mt-6 flex items-center gap-6">
                     <div className="flex-1 h-px bg-white/10" />
-                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Decision Finalized</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">Decision Finalized</span>
                     <div className="flex-1 h-px bg-white/10" />
                   </div>
                 </div>
@@ -408,10 +587,10 @@ export default function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+        <div className="bg-white/5 p-5 rounded-[2rem] border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[60px] rounded-full" />
-          <h3 className="text-xl font-black tracking-tight mb-8 uppercase text-slate-400">Expense Breakdown</h3>
-          <div className="h-[350px]">
+          <h3 className="text-lg font-black tracking-tight mb-6 uppercase text-slate-400">Expense Breakdown</h3>
+          <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -439,10 +618,10 @@ export default function Dashboard() {
         </div>
 
 
-        <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+        <div className="bg-white/5 p-5 rounded-[2rem] border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[60px] rounded-full" />
-          <h3 className="text-xl font-black tracking-tight mb-8 uppercase text-slate-400">Monthly Cashflow</h3>
-          <div className="h-[350px]">
+          <h3 className="text-lg font-black tracking-tight mb-6 uppercase text-slate-400">Monthly Cashflow</h3>
+          <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={[
                 { name: 'Jan', income: 40000, expense: 24000 },
@@ -472,12 +651,12 @@ function StatCard({ title, value, change, trend, icon, color }: any) {
   return (
     <motion.div 
       whileHover={{ y: -8, scale: 1.02 }}
-      className="bg-white/5 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group"
+      className="bg-white/5 p-4 rounded-[2rem] border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group"
     >
       <div className={`absolute -right-4 -top-4 w-24 h-24 bg-${color}-500/10 blur-[40px] rounded-full group-hover:bg-${color}-500/20 transition-colors duration-500`} />
       
-      <div className="flex items-center justify-between mb-8 relative z-10">
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 shadow-inner`}>
+      <div className="flex items-center justify-between mb-4 relative z-10">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 shadow-inner`}>
           {icon}
         </div>
         <span className={cn(
@@ -489,7 +668,7 @@ function StatCard({ title, value, change, trend, icon, color }: any) {
         </span>
       </div>
       <h4 className="text-xs font-black text-slate-500 mb-2 uppercase tracking-widest relative z-10">{title}</h4>
-      <p className="text-4xl font-black tracking-tight text-white relative z-10">{value}</p>
+      <p className="text-3xl font-black tracking-tight text-white relative z-10">{value}</p>
     </motion.div>
   );
 }
