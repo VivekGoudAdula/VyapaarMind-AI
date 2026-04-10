@@ -1,15 +1,19 @@
-# 🚀 VyapaarMind AI
+# VyapaarMind AI
 ### Smart Financial Decisions for Every Business
 
-[![Status](https://img.shields.io/badge/Status-Hackathon--Winning-brightgreen)](https://github.com/VivekGoudAdula/VyapaarMind-AI)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Powered By](https://img.shields.io/badge/AI-Supervity-orange)](https://supervity.ai)
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![TypeScript](https://img.shields.io/badge/typescript-%23007acc.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
+![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
 
 **VyapaarMind AI** is an autonomous AI CFO for SMEs that tracks cashflow, predicts risks, and takes intelligent financial actions before you even ask.
 
 ---
 
-## 💡 The Problem Statement
+## The Problem Statement
 
 Millions of small businesses don’t fail because they lack revenue — **they fail because they lack financial intelligence.**
 
@@ -20,20 +24,20 @@ Reality for most SMEs:
 
 > **"Money flows… but intelligence doesn't."**
 
-## ⚠️ Why This Matters
+## Why This Matters
 *   **₹50K–₹2L Annual Losses:** Typical SME loss due to poor financial planning.
 *   **Cashflow Collapse:** 1 out of 3 SMEs struggle to pay employees on time.
 *   **High-Risk Decisions:** Investing in inventory or hiring based on "gut feeling" rather than data.
 
 ---
 
-## 🧠 The Solution: Autonomous Intelligence
+## The Solution: Autonomous Intelligence
 
 VyapaarMind AI is **NOT** just another expense tracker or a static dashboard. It is an **Autonomous Financial Intelligence System**.
 
 It doesn't just show you what *happened*; it tells you what *will happen* and takes action to prevent it.
 
-### 💀 Core Differentiators
+### Core Differentiators
 1.  **Autonomous Action Engine:** Detects risks (like upcoming low balance) and triggers alerts/emails automatically.
 2.  **AI CFO — MAYA (Supervity):** A context-aware reasoning engine that understands your specific business patterns.
 3.  **Future Simulation Engine:** Test "What If" scenarios before spending a single rupee.
@@ -41,7 +45,7 @@ It doesn't just show you what *happened*; it tells you what *will happen* and ta
 
 ---
 
-## ⚙️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TD
@@ -56,7 +60,7 @@ graph TD
     I -->|Display| F
 ```
 
-## 🔄 Autonomous Flow
+## Autonomous Flow
 
 ```mermaid
 sequenceDiagram
@@ -76,21 +80,21 @@ sequenceDiagram
 
 ---
 
-## 🔥 Key Features
+## Key Features
 
 | Feature | Description |
 | :--- | :--- |
-| **📊 Smart Dashboard** | Real-time visibility into Income, Expense, and Net Profit. |
-| **📈 Predictive Intelligence** | Forecasts burn rates and predicts "Day Zero" for cashflow. |
-| **⚠️ Risk Detection** | Automatically flags overspending and unstable patterns. |
-| **📧 Automated Alerts** | Professional, bundled email notifications for critical signals. |
-| **🧠 AI CFO (MAYA)** | Powered by Supervity for human-like financial reasoning. |
-| **🔮 Future Simulator** | Simulates ROI on investments before you commit funds. |
-| **☢️ Auto-MAYA** | The first AI CFO that triggers itself to save your business. |
+| **Smart Dashboard** | Real-time visibility into Income, Expense, and Net Profit. |
+| **Predictive Intelligence** | Forecasts burn rates and predicts "Day Zero" for cashflow. |
+| **Risk Detection** | Automatically flags overspending and unstable patterns. |
+| **Automated Alerts** | Professional, bundled email notifications for critical signals. |
+| **AI CFO (MAYA)** | Powered by Supervity for human-like financial reasoning. |
+| **Future Simulator** | Simulates ROI on investments before you commit funds. |
+| **Auto-MAYA** | The first AI CFO that triggers itself to save your business. |
 
 ---
 
-## 🏗️ Tech Stack
+## Tech Stack
 
 *   **Frontend:** React, TypeScript, Tailwind CSS
 *   **Backend:** Python, FastAPI
@@ -101,7 +105,7 @@ sequenceDiagram
 
 ---
 
-## 📊 Database Design
+## Database Design
 
 *   **Users:** SME Profile & Preferences.
 *   **Transactions:** Categorized income/expense logs.
@@ -110,7 +114,7 @@ sequenceDiagram
 
 ---
 
-## 🌍 Real World Impact
+## Real World Impact
 
 *   **Survival:** Helps SMEs survive the "Valley of Death" by stabilizing cashflow.
 *   **Financial Literacy:** Democratizes high-level CFO intelligence for the local shopkeeper.
@@ -118,7 +122,7 @@ sequenceDiagram
 
 ---
 
-## 🚀 Future Scope
+## Future Scope
 
 *   **UPI/Bank Integration:** Direct hook into real-time transaction streams.
 *   **GST Insights:** Automated tax planning and filing alerts.
@@ -126,7 +130,7 @@ sequenceDiagram
 
 ---
 
-## 🏆 Final Positioning
+## Final Positioning
 
 VyapaarMind AI is not a tool. 
 **It is a startup dedicated to making SMEs un-killable.**
