@@ -1,10 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import MayaIntervention from './MayaIntervention';
 
 export default function Layout() {
   return (
     <div className="flex h-screen bg-[#020617] font-sans text-white">
+      <MayaIntervention />
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Background Glows */}
