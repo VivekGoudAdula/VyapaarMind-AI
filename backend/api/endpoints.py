@@ -9,6 +9,9 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import base64
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -54,6 +57,45 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
         server.quit()
         
         print(f"📧 [SYSTEM] BUNDLED EMAIL SENT TO: {to_email}")
+    except Exception as e:
+        print(f"❌ [MAIL ERROR] {e}")
+
+def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
+    sender_email = os.getenv("EMAIL_USER")
+    sender_password = os.getenv("EMAIL_PASSWORD", "").replace(" ", "").strip()
+
+    if not sender_email or not sender_password or sender_email == "your_email@gmail.com":
+        print(f"⚠️ [MOCK] Invoice Email would be sent to {to_email}")
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg["Subject"] = subject
+        msg["From"] = f"VyapaarMind AI <{sender_email}>"
+        msg["To"] = to_email
+
+        # Attach HTML body
+        msg.attach(MIMEText(body_html, "html"))
+
+        # Attach PDF if provided
+        if pdf_base64:
+            # pdf_base64 might contain 'data:application/pdf;base64,' prefix
+            if "base64," in pdf_base64:
+                pdf_base64 = pdf_base64.split("base64,")[1]
+            
+            payload = MIMEBase('application', 'octate-stream')
+            payload.set_payload(base64.b64decode(pdf_base64))
+            encoders.encode_base64(payload)
+            payload.add_header('Content-Disposition', 'attachment', filename="Invoice.pdf")
+            msg.attach(payload)
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        
+        print(f"📧 [SYSTEM] INVOICE EMAIL SENT TO: {to_email}")
     except Exception as e:
         print(f"❌ [MAIL ERROR] {e}")
 
@@ -493,3 +535,65 @@ def simulate(user_id: str, request: schemas.SimulateRequest, db: Session = Depen
         "risk": risk,
         "analysis": ai_analysis
     }
+
+@router.post("/invoice/send-reminder")
+def send_invoice_reminder(request: schemas.InvoiceReminderRequest, db: Session = Depends(get_db)):
+    print(f"📧 [INVOICE] Sending personalized invoice to {request.email} for {request.amount}")
+    
+    subject = f"Invoice {request.invoice_id} from VyapaarMind AI Systems"
+    body_html = f"""
+    <html>
+    <body style="font-family: 'Inter', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, oxygen, ubuntu, cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; padding: 40px; background-color: #f1f5f9; color: #1e293b;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 48px; border-radius: 32px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+            <div style="margin-bottom: 32px;">
+                <div style="display: inline-block; padding: 12px; background: #4f46e5; border-radius: 12px; margin-bottom: 16px;">
+                    <span style="color: white; font-weight: 900; font-size: 20px;">VM</span>
+                </div>
+                <h2 style="font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.025em;">VyapaarMind AI Systems</h2>
+                <p style="font-size: 12px; font-weight: 700; color: #64748b; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 0.1em;">Finalizing Your Transaction</p>
+            </div>
+
+            <div style="height: 1px; background: #f1f5f9; margin-bottom: 32px;"></div>
+
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Hello <strong>{request.client_name}</strong>,</p>
+            
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+                We have generated a professional invoice for your recent engagement with VyapaarMind AI. 
+                The total amount due is <strong>₹{request.amount:,.2f}</strong>.
+            </p>
+
+            <div style="background: #f8fafc; padding: 24px; border-radius: 16px; margin-bottom: 32px; border: 1px solid #f1f5f9;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Invoice ID</td>
+                        <td style="text-align: right; font-size: 14px; font-weight: 700; color: #0f172a;">#{request.invoice_id}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-top: 12px; font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Due Amount</td>
+                        <td style="padding-top: 12px; text-align: right; font-size: 18px; font-weight: 900; color: #4f46e5;">₹{request.amount:,.2f}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+                Please find the detailed PDF attachment for your records. 
+                Payment is expected at your earliest convenience.
+            </p>
+
+            <div style="height: 1px; background: #f1f5f9; margin-bottom: 32px; margin-top: 32px;"></div>
+
+            <div style="text-align: center;">
+                <p style="font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 8px;">Thank you for your business!</p>
+                <p style="font-size: 11px; color: #94a3b8; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;">Sent via VyapaarMind AI</p>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 24px;">
+            <p style="font-size: 12px; color: #94a3b8;">&copy; 2026 VyapaarMind AI Systems. All rights reserved.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    send_invoice_email(request.email, subject, body_html, request.pdf_content)
+        
+    return {"status": "success", "message": "Personalized invoice sent successfully"}

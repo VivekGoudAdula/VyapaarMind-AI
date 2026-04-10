@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Search, Filter, X } from 'lucide-react';
+import { Plus, Search, Filter, X, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import InvoiceModal from '../components/InvoiceModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -10,6 +11,7 @@ export default function Transactions() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({ amount: '', type: 'expense', category: '', date: new Date().toISOString().split('T')[0] });
 
@@ -67,13 +69,22 @@ export default function Transactions() {
           <h2 className="text-3xl font-black tracking-tight uppercase">Transactions</h2>
           <p className="text-slate-500 text-xs font-black uppercase tracking-widest mt-1">Ledger Command Center</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/40 group"
-        >
-          <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-          Add Transaction
-        </button>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setIsInvoiceModalOpen(true)}
+            className="px-6 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-white/10 transition-all group"
+          >
+            <FileText className="w-5 h-5 text-indigo-400" />
+            Generate Invoice
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/40 group"
+          >
+            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+            Add Transaction
+          </button>
+        </div>
       </div>
 
       <div className="bg-white/5 rounded-[2.5rem] border border-white/10 backdrop-blur-xl shadow-2xl overflow-hidden relative">
@@ -215,6 +226,11 @@ export default function Transactions() {
           </div>
         )}
       </AnimatePresence>
+
+      <InvoiceModal 
+        isOpen={isInvoiceModalOpen} 
+        onClose={() => setIsInvoiceModalOpen(false)} 
+      />
     </div>
   );
 }

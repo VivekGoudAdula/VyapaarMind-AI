@@ -100,3 +100,10 @@ class SimulateResponse(BaseModel):
     runway: float
     risk: str
     analysis: Optional[SimulationAnalysis] = None
+
+class InvoiceReminderRequest(BaseModel):
+    email: str
+    amount: float
+    client_name: str
+    invoice_id: str
+    pdf_content: Optional[str] = None

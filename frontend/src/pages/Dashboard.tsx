@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { TrendingUp, TrendingDown, Wallet, AlertCircle, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, AlertCircle, ArrowUpRight, ArrowDownRight, CheckCircle2, FileText } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import LiveSMSFeed from '../components/LiveSMSFeed';
+import InvoiceModal from '../components/InvoiceModal';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const [simResult, setSimResult] = useState<any>(null);
   const [simLoading, setSimLoading] = useState(false);
   const [showSimModal, setShowSimModal] = useState(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   const fetchSummary = () => {
     if (!user?.uid) return;
@@ -217,9 +219,18 @@ export default function Dashboard() {
       {/* TOP SECTION: Welcome + Live SMS Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
-          <div className="mb-0">
-            <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">Command Center</h1>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Autonomous Financial Intelligence & Live Ingestion</p>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-0">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">Command Center</h1>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Autonomous Financial Intelligence & Live Ingestion</p>
+            </div>
+            <button 
+              onClick={() => setIsInvoiceModalOpen(true)}
+              className="px-6 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-white/10 transition-all shadow-xl active:scale-95 flex-shrink-0"
+            >
+              <FileText className="w-4 h-4 text-indigo-400" />
+              Generate Invoice
+            </button>
           </div>
         </div>
         <div className="lg:col-span-1">
@@ -643,6 +654,11 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      
+      <InvoiceModal 
+        isOpen={isInvoiceModalOpen} 
+        onClose={() => setIsInvoiceModalOpen(false)} 
+      />
     </div>
   );
 }
