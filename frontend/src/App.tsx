@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import AICFO from './pages/AICFO';
 import Alerts from './pages/Alerts';
+import Invoices from './pages/Invoices';
+import Forecast from './pages/Forecast';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -37,6 +39,8 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/ai-cfo" element={<AICFO />} />
             <Route path="/alerts" element={<Alerts />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/forecast" element={<Forecast />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

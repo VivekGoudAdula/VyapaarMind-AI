@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ReceiptIndianRupee, Bot, Bell, LogOut } from 'lucide-react';
+import { LayoutDashboard, ReceiptIndianRupee, Bot, Bell, LogOut, FileText, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -8,6 +8,8 @@ const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Transactions', path: '/transactions', icon: ReceiptIndianRupee },
   { name: 'AI CFO (MAYA)', path: '/ai-cfo', icon: Bot },
+  { name: 'Invoices', path: '/invoices', icon: FileText },
+  { name: 'Forecast', path: '/forecast', icon: TrendingUp },
   { name: 'Alerts', path: '/alerts', icon: Bell },
 ];
 

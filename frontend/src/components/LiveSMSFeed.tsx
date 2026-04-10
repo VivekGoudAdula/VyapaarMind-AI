@@ -7,15 +7,18 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const smsSamples = [
   "A/c *6789 debited by ₹45 for UPI:910234 at Tea Stall",
-  "A/c *6789 credited by ₹25000 from UPI:CLIENT-PAYMENT",
-  "UPI: ₹1200 paid to ZOMATO-OFFER from A/c *6789",
-  "Transaction of ₹45000 on A/c *6789 via UPI:VENDOR-BILLING",
-  "₹120 received in A/c *6789 from UPI:CASHBACK-REWARD",
+  "A/c *6789 credited by ₹25,000 from UPI:CLIENT-PAYMENT",
+  "UPI: ₹1,200 paid to ZOMATO-OFFER from A/c *6789",
+  "Transaction of ₹45,000 on A/c *6789 via UPI:VENDOR-BILLING",
+  "₹1,250 received in A/c *6789 from UPI:CASHBACK-REWARD",
   "A/c *6789 debited by ₹15 for UPI:662341 at General Store",
-  "UPI: ₹5500 paid to AWS-SERVICES from A/c *6789",
-  "A/c *6789 debited by ₹15000 for UPI:OFFICE-RENTAL",
-  "₹65000 credited to A/c *6789 from UPI:SETTLEMENT-FUND",
-  "Transaction of ₹80 on A/c *6789 successful. Bal: ₹12450"
+  "UPI: ₹5,500 paid to AWS-SERVICES from A/c *6789",
+  "A/c *6789 debited by ₹15,000 for UPI:OFFICE-RENTAL",
+  "₹65,000 credited to A/c *6789 from UPI:SETTLEMENT-FUND",
+  "Payment of ₹32,000 received from UPI:NEW-CLIENT-DEPOSIT",
+  "A/c *6789 credited by ₹1,500: Salary Bonus Received",
+  "Refund of ₹450 processed to A/c *6789 from UPI:AMAZON-REFUND",
+  "Transaction of ₹80 on A/c *6789 successful. Bal: ₹12,450"
 ];
 
 interface Toast {
@@ -40,31 +43,40 @@ export default function LiveSMSFeed() {
   };
 
   const parseSMS = (message: string) => {
-    const amountMatch = message.match(/₹(\d+)/);
+    // Improved regex to handle commas in amounts
+    const cleanMsg = message.replace(/,/g, '');
+    const amountMatch = cleanMsg.match(/₹(\d+)/);
     const amount = amountMatch ? parseInt(amountMatch[1]) : 0;
     
-    let type: 'income' | 'expense' = 'expense';
+    let type: 'income' | 'expense' = 'expense'; // Default to expense for safety
     const msgLower = message.toLowerCase();
     
-    if (msgLower.includes('received') || msgLower.includes('credited') || msgLower.includes('from')) {
+    // Strong Income Indicators
+    const incomeKeywords = ['received', 'credited', 'refunded', 'refund', 'bonus', 'salary', 'income'];
+    const expenseKeywords = ['debited', 'paid to', 'spent', 'transaction of', 'payment of'];
+
+    const hasIncomeWord = incomeKeywords.some(word => msgLower.includes(word));
+    const hasExpenseWord = expenseKeywords.some(word => msgLower.includes(word));
+
+    if (hasIncomeWord && !msgLower.includes('paid to')) {
       type = 'income';
-    }
-    
-    // Explicit overrides for common debt keywords
-    if (msgLower.includes('debited') || msgLower.includes('paid to') || msgLower.includes('spent')) {
+    } else if (hasExpenseWord) {
       type = 'expense';
     }
 
+    // Extraction logic for names
     let name = "Transaction";
     const upiMatch = message.match(/UPI:([^ ]+)/i);
     const atMatch = message.match(/at\s+([^ ]+)/i);
     const toMatch = message.match(/to\s+([^ ]+)/i);
-    const fromNameMatch = message.match(/from\s+([^ ]+)/i);
+    const fromMatch = message.match(/from\s+UPI:([^ ]+)/i) || message.match(/from\s+([^ ]+)/i);
 
     if (atMatch) name = atMatch[1];
     else if (toMatch) name = toMatch[1];
+    else if (fromMatch) name = fromMatch[1];
     else if (upiMatch) name = upiMatch[1];
-    else if (fromNameMatch) name = fromNameMatch[1];
+    
+    name = name.replace(/[:]/g, '').trim();
 
     return { amount, type, name, category: "Auto" };
   };

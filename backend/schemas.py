@@ -107,3 +107,14 @@ class InvoiceReminderRequest(BaseModel):
     client_name: str
     invoice_id: str
     pdf_content: Optional[str] = None
+
+class ForecastMonth(BaseModel):
+    month: str
+    income: float
+    expense: float
+    balance: float
+
+class ForecastResponse(BaseModel):
+    months: List[ForecastMonth]
+    trend: str
+    risk: str

@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import LiveSMSFeed from '../components/LiveSMSFeed';
-import InvoiceModal from '../components/InvoiceModal';
+import MayaIntelligence from '../components/MayaIntelligence';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -28,7 +28,6 @@ export default function Dashboard() {
   const [simResult, setSimResult] = useState<any>(null);
   const [simLoading, setSimLoading] = useState(false);
   const [showSimModal, setShowSimModal] = useState(false);
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   const fetchSummary = () => {
     if (!user?.uid) return;
@@ -146,6 +145,9 @@ export default function Dashboard() {
       setSimResult({ ...data, scenario: simAmount });
       setShowSimModal(true);
       if (data.analysis?.verdict) playVerdictSound(data.analysis.verdict);
+      
+      // Notify Maya Intelligence
+      window.dispatchEvent(new Event("simulation-run"));
     } catch (err) {
       console.error(err);
     } finally {
@@ -224,13 +226,6 @@ export default function Dashboard() {
               <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">Command Center</h1>
               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Autonomous Financial Intelligence & Live Ingestion</p>
             </div>
-            <button 
-              onClick={() => setIsInvoiceModalOpen(true)}
-              className="px-6 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-white/10 transition-all shadow-xl active:scale-95 flex-shrink-0"
-            >
-              <FileText className="w-4 h-4 text-indigo-400" />
-              Generate Invoice
-            </button>
           </div>
         </div>
         <div className="lg:col-span-1">
@@ -239,7 +234,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         <StatCard 
           title="Total Income" 
           value={`₹${summary.total_income.toLocaleString()}`} 
@@ -264,6 +259,7 @@ export default function Dashboard() {
           icon={<Wallet className="w-5 h-5 text-indigo-400" />}
           color="indigo"
         />
+        <MayaIntelligence />
       </div>
       
       {/* Intelligence Highlights Section */}
@@ -526,7 +522,10 @@ export default function Dashboard() {
 
                     {/* Confirm Button */}
                     <button
-                      onClick={() => setShowSimModal(false)}
+                      onClick={() => {
+                        setShowSimModal(false);
+                        window.dispatchEvent(new Event("alert-resolved"));
+                      }}
                     className="mt-auto w-full py-4 bg-white/8 hover:bg-white/15 text-white font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl transition-all border border-white/5 active:scale-[0.98]"
                   >
                     Confirm Awareness
@@ -571,7 +570,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <button 
-                      onClick={() => setAutoDecision(null)}
+                      onClick={() => {
+                        setAutoDecision(null);
+                        window.dispatchEvent(new Event("alert-resolved"));
+                      }}
                       className="text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
                     >
                       Dismiss
@@ -654,11 +656,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      
-      <InvoiceModal 
-        isOpen={isInvoiceModalOpen} 
-        onClose={() => setIsInvoiceModalOpen(false)} 
-      />
     </div>
   );
 }

@@ -394,11 +394,57 @@ def predict_financial_health(user_id: str, db: Session = Depends(get_db)):
 
 @router.post("/ai/decision", response_model=schemas.AIDecisionResponse)
 def get_ai_decision(request: schemas.AIDecisionRequest, db: Session = Depends(get_db)):
+    # 1. Fetch current financial context
     summary = get_summary(request.user_id, db)
-    financial_summary = f"Balance: ₹{summary['balance']}"
+    prediction = predict_financial_health(request.user_id, db)
+    
+    financial_context = f"""
+    Current Balance: ₹{summary['balance']:,}
+    Current Debt/Burn: ₹{prediction['net_daily']:,}/day
+    Status: {summary['risk_flags']}
+    """
+
+    # 2. Check for small talk / greetings
+    small_talk_keywords = ["hi", "hello", "hey", "who are you", "what can you do", "help", "greet"]
+    is_small_talk = any(kw in request.question.lower() for kw in small_talk_keywords) and len(request.question.split()) < 5
+
+    if is_small_talk:
+        # Groq handles small talk naturally
+        prompt = f"You are MAYA, an Elite AI CFO. Give a short, professional, yet punchy greeting to the user. User said: '{request.question}'"
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return {"decision": response.choices[0].message.content}
+
+    # 3. Handle financial analysis via Supervity (Deep Engine)
     from core.supervity import SupervityAgent
-    response_text = SupervityAgent.get_decision(request.question, financial_summary)
-    return {"decision": response_text}
+    raw_intelligence = SupervityAgent.get_decision(request.question, financial_context)
+
+    # 4. Use Groq to make Supervity output 'relatable' and conversational
+    maya_prompt = f"""
+    You are MAYA, the Elite AI CFO. 
+    A deep intelligence engine (Supervity) has provided this raw financial analysis for the user:
+    ---
+    {raw_intelligence}
+    ---
+    
+    User asked: '{request.question}'
+    
+    Task:
+    - Transform the raw intelligence into a relatable, conversational, yet extremely professional and strategic response.
+    - Keep the core facts (Verdict, Logic, Actions) but deliver them as if you are speaking directly to the business owner.
+    - Be punchy and direct. Avoid generic corporate fluff.
+    - If the analysis is critical, sound like an authority. 
+    - Max 4-5 sentences.
+    """
+    
+    maya_response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": maya_prompt}]
+    )
+    
+    return {"decision": maya_response.choices[0].message.content}
 
 def auto_maya_decision(user_id: str, db: Session):
     summary = get_summary(user_id, db)
@@ -534,6 +580,76 @@ def simulate(user_id: str, request: schemas.SimulateRequest, db: Session = Depen
         "runway": float(round(runway, 1)),
         "risk": risk,
         "analysis": ai_analysis
+    }
+
+@router.get("/forecast/{user_id}", response_model=schemas.ForecastResponse)
+def get_forecast(user_id: str, db: Session = Depends(get_db)):
+    transactions = db.query(models.Transaction).filter(models.Transaction.user_id == user_id).all()
+    
+    # Defaults
+    if not transactions:
+        return {
+            "months": [
+                {"month": "Week 1", "income": 0, "expense": 0, "balance": 0},
+                {"month": "Week 12", "income": 0, "expense": 0, "balance": 0}
+            ],
+            "trend": "stable",
+            "risk": "LOW"
+        }
+
+    total_inc = sum(t.amount for t in transactions if t.type == "income")
+    total_exp = sum(t.amount for t in transactions if t.type == "expense")
+    current_balance = total_inc - total_exp
+
+    dates = [t.date for t in transactions]
+    days_span = (max(dates) - min(dates)).days + 1
+    if days_span < 1: days_span = 1
+    
+    avg_daily_income = total_inc / days_span
+    avg_daily_expense = total_exp / days_span
+
+    forecast_points = []
+    temp_balance = current_balance
+    
+    import random
+    # Generate 12 weekly points for 3 months
+    for i in range(1, 13):
+        # Add some random fluctuation (-15% to +15%) to make it look realistic
+        noise_factor = random.uniform(0.85, 1.15)
+        
+        # Weekly movement
+        week_income = (avg_daily_income * 7) * noise_factor
+        week_expense = (avg_daily_expense * 7) * (2 - noise_factor) # Expense flies opposite to income for more 'fluctuation'
+        
+        temp_balance += (week_income - week_expense)
+        
+        forecast_points.append({
+            "month": f"W{i}",
+            "income": round(week_income, 2),
+            "expense": round(week_expense, 2),
+            "balance": round(temp_balance, 2)
+        })
+
+    # Trend logic (comparing start vs end)
+    if temp_balance > current_balance * 1.05:
+        trend = "growing"
+    elif temp_balance < current_balance * 0.95:
+        trend = "declining"
+    else:
+        trend = "stable"
+
+    # Risk logic
+    if temp_balance < 0:
+        risk = "HIGH"
+    elif temp_balance < current_balance * 0.5:
+        risk = "MEDIUM"
+    else:
+        risk = "LOW"
+
+    return {
+        "months": forecast_points,
+        "trend": trend,
+        "risk": risk
     }
 
 @router.post("/invoice/send-reminder")
