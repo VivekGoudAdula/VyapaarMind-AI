@@ -328,6 +328,40 @@ def get_summary(user_id: str, db: Session = Depends(get_db)):
         "total_expenses": total_expenses
     }
     ml_risk = VyapaarEngine.get_ml_risk(summary_data, transactions)
+
+    # 🧠 Vyapaar Credit Score Logic
+    # 1. Stability (Max 400): Ratio of income to expense
+    stability = 0
+    if total_income > 0:
+        ratio = total_expenses / total_income
+        if ratio < 0.5: stability = 400
+        elif ratio < 0.8: stability = 300
+        elif ratio < 1.0: stability = 200
+        else: stability = 100
+    
+    # 2. Runway (Max 300): Based on balance absolute
+    runway_s = 0
+    if balance > 100000: runway_s = 300
+    elif balance > 50000: runway_s = 250
+    elif balance > 20000: runway_s = 150
+    elif balance > 5000: runway_s = 50
+    else: runway_s = 20
+
+    # 3. Discipline (Max 300): Avoidance of Misc expenses and Huge single losses
+    discipline = 300
+    # Penalty for misc
+    misc_expenses = category_breakdown.get("Miscellaneous", 0)
+    if total_expenses > 0:
+        misc_pct = misc_expenses / total_expenses
+        if misc_pct > 0.3: discipline -= 100
+        elif misc_pct > 0.1: discipline -= 50
+    
+    # Penalty for large single expense (>50% of monthly average income if available)
+    large_tx = any(t.amount > 20000 and t.type == "expense" for t in transactions)
+    if large_tx: discipline -= 50
+
+    total_score = stability + runway_s + discipline
+    status = "EXCELLENT" if total_score > 850 else "GOOD" if total_score > 700 else "AVERAGE" if total_score > 500 else "POOR"
         
     return {
         "total_income": total_income,
@@ -335,7 +369,14 @@ def get_summary(user_id: str, db: Session = Depends(get_db)):
         "balance": balance,
         "category_breakdown": category_breakdown,
         "risk_flags": risk_flags,
-        "ml_risk": ml_risk
+        "ml_risk": ml_risk,
+        "credit_score": {
+            "score": total_score,
+            "status": status,
+            "stability_score": stability,
+            "runway_score": runway_s,
+            "discipline_score": discipline
+        }
     }
 
 # Sync user endpoint to keep it for auth integration if needed

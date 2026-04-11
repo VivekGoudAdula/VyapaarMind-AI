@@ -162,6 +162,91 @@ export default function DataIntelligence() {
                 />
             </div>
 
+            {/* SECTION 1.5: VYAPAAR CREDIT SCORE */}
+            <div className="bg-slate-900/50 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full group-hover:bg-indigo-500/20 transition-all duration-700" />
+
+                <div className="flex flex-col lg:flex-row items-center gap-12 relative z-10">
+                    {/* Score Circle */}
+                    <div className="relative flex items-center justify-center w-48 h-48">
+                        <svg className="w-full h-full -rotate-90">
+                            <circle
+                                cx="96" cy="96" r="88"
+                                stroke="currentColor"
+                                strokeWidth="12"
+                                fill="transparent"
+                                className="text-white/5"
+                            />
+                            <circle
+                                cx="96" cy="96" r="88"
+                                stroke="currentColor"
+                                strokeWidth="12"
+                                fill="transparent"
+                                strokeDasharray={553}
+                                strokeDashoffset={553 - (553 * (summary.credit_score?.score || 0)) / 1000}
+                                className={`${summary.credit_score?.score > 700 ? 'text-emerald-500' : 'text-amber-500'} transition-all duration-[1.5s] ease-out`}
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-5xl font-black text-white tracking-tighter">{summary.credit_score?.score || 0}</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">out of 1000</span>
+                        </div>
+                    </div>
+
+                    {/* Breakdown & Status */}
+                    <div className="flex-1 space-y-8 w-full">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                                    <Zap className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                                    Vyapaar Credit Score
+                                </h3>
+                                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">
+                                    AI-Model v1.0 • Semantic Financial Reliability Rating
+                                </p>
+                            </div>
+                            <div className={`px-6 py-2 rounded-full border ${summary.credit_score?.score > 700 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'} text-sm font-black uppercase tracking-[0.2em]`}>
+                                {summary.credit_score?.status || 'POOR'}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <ScoreBreakdownItem
+                                label="Cashflow Stability"
+                                score={summary.credit_score?.stability_score || 0}
+                                max={400}
+                                icon={<TrendingUp className="w-4 h-4" />}
+                                color="indigo"
+                            />
+                            <ScoreBreakdownItem
+                                label="Runway Health"
+                                score={summary.credit_score?.runway_score || 0}
+                                max={300}
+                                icon={<Database className="w-4 h-4" />}
+                                color="emerald"
+                            />
+                            <ScoreBreakdownItem
+                                label="Expense Discipline"
+                                score={summary.credit_score?.discipline_score || 0}
+                                max={300}
+                                icon={<CheckCircle2 className="w-4 h-4" />}
+                                color="amber"
+                            />
+                        </div>
+
+                        <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
+                                <span className="text-indigo-400 mr-2">MAYA ADVISORY:</span>
+                                {summary.credit_score?.score > 700
+                                    ? "Your financial discipline is exceptional. This score qualifies you for pre-approved micro-loans with 1.2% lower interest rates via Vyapaar Capital partners."
+                                    : "Limited runway and high miscellaneous spending are dragging your score. Reduce unmapped expenses to unlock better credit terms."}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* SECTION 2: VISUAL ANALYTICS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Cashflow Trend Graph */}
@@ -426,6 +511,34 @@ function PipelineStep({ icon, title, desc, step, active }: any) {
                     <ChevronRight className="w-4 h-4 text-white/10" />
                 </div>
             )}
+        </div>
+    );
+}
+
+function ScoreBreakdownItem({ label, score, max, icon, color }: any) {
+    const colorMap: any = {
+        indigo: 'text-indigo-400 bg-indigo-500/10',
+        emerald: 'text-emerald-400 bg-emerald-500/10',
+        amber: 'text-amber-400 bg-amber-500/10'
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <span className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center ${colorMap[color]}`}>{icon}</span>
+                    {label}
+                </span>
+                <span>{score}/{max}</span>
+            </div>
+            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(score / max) * 100}%` }}
+                    transition={{ duration: 1, delay: 0.5 }}
+                    className={`h-full ${color === 'indigo' ? 'bg-indigo-500' : color === 'emerald' ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                />
+            </div>
         </div>
     );
 }

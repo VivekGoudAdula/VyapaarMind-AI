@@ -21,6 +21,13 @@ class Transaction(BaseModel):
     class Config:
         from_attributes = True
 
+class CreditScore(BaseModel):
+    score: int
+    status: str
+    stability_score: int
+    runway_score: int
+    discipline_score: int
+
 class SummaryResponse(BaseModel):
     total_income: float
     total_expenses: float
@@ -28,6 +35,7 @@ class SummaryResponse(BaseModel):
     category_breakdown: Dict[str, float]
     risk_flags: List[str]
     ml_risk: Optional[str] = None
+    credit_score: Optional[CreditScore] = None
 
 class UserBase(BaseModel):
     name: str
