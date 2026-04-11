@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ReceiptIndianRupee, Bot, Bell, LogOut, FileText, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ReceiptIndianRupee, Bot, Bell, LogOut, FileText, TrendingUp, BarChart3 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -10,6 +10,7 @@ const navItems = [
   { name: 'AI CFO (MAYA)', path: '/ai-cfo', icon: Bot },
   { name: 'Invoices', path: '/invoices', icon: FileText },
   { name: 'Forecast', path: '/forecast', icon: TrendingUp },
+  { name: 'Data Intelligence', path: '/intelligence', icon: BarChart3 },
   { name: 'Alerts', path: '/alerts', icon: Bell },
 ];
 
@@ -33,7 +34,7 @@ export default function Sidebar() {
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">VyapaarMind</span>
         </NavLink>
       </div>
-      
+
       <nav className="flex-1 px-6 space-y-2">
         {navItems.map((item) => (
           <NavLink
@@ -42,8 +43,8 @@ export default function Sidebar() {
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group",
-                isActive 
-                  ? "bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 font-bold" 
+                isActive
+                  ? "bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 font-bold"
                   : "text-slate-500 hover:bg-white/5 hover:text-white"
               )
             }
@@ -55,7 +56,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-6 border-t border-white/5">
-        <button 
+        <button
           onClick={handleLogout}
           className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-500 hover:text-red-400 hover:bg-red-400/5 rounded-2xl transition-all group"
         >

@@ -9,9 +9,9 @@ export default function GoogleButton() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log('User signed in:', result.user);
-      navigate('/dashboard');
+      await signInWithPopup(auth, googleProvider);
+      // No manual navigation here; the Login page has a useEffect that watches 
+      // the auth state and redirects to /dashboard once the user is detected.
     } catch (error) {
       console.error('Error signing in with Google:', error);
     }

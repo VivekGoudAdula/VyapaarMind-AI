@@ -47,10 +47,10 @@ export default function LiveSMSFeed() {
     const cleanMsg = message.replace(/,/g, '');
     const amountMatch = cleanMsg.match(/₹(\d+)/);
     const amount = amountMatch ? parseInt(amountMatch[1]) : 0;
-    
+
     let type: 'income' | 'expense' = 'expense'; // Default to expense for safety
     const msgLower = message.toLowerCase();
-    
+
     // Strong Income Indicators
     const incomeKeywords = ['received', 'credited', 'refunded', 'refund', 'bonus', 'salary', 'income'];
     const expenseKeywords = ['debited', 'paid to', 'spent', 'transaction of', 'payment of'];
@@ -75,7 +75,7 @@ export default function LiveSMSFeed() {
     else if (toMatch) name = toMatch[1];
     else if (fromMatch) name = fromMatch[1];
     else if (upiMatch) name = upiMatch[1];
-    
+
     name = name.replace(/[:]/g, '').trim();
 
     return { amount, type, name, category: "Auto" };
@@ -85,15 +85,15 @@ export default function LiveSMSFeed() {
 
   const handleDetectedSMS = async (message: string) => {
     if (!user) return;
-    
+
     setActiveSms(message);
     setPulse(true);
     setTimeout(() => setPulse(false), 2000);
     addToast(`Incoming SMS: "${message}"`, 'sms');
-    
+
     setIsProcessing(true);
     const parsed = parseSMS(message);
-    
+
     // Deliberate delay to make the AI parsing phase visible to the user
     setTimeout(async () => {
       try {
@@ -123,18 +123,30 @@ export default function LiveSMSFeed() {
   };
 
   useEffect(() => {
+    if (!user) return;
+
+    // 1. Initial trigger 5 seconds after mount/login
+    const initialTimeout = setTimeout(() => {
+      const randomSms = smsSamples[Math.floor(Math.random() * smsSamples.length)];
+      handleDetectedSMS(randomSms);
+    }, 5000);
+
+    // 2. Subsequent triggers every 30 seconds
     const interval = setInterval(() => {
       const randomSms = smsSamples[Math.floor(Math.random() * smsSamples.length)];
       handleDetectedSMS(randomSms);
-    }, 25000); // 25 seconds
+    }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, [user]);
 
   return (
     <>
-      <motion.div 
-        animate={pulse ? { 
+      <motion.div
+        animate={pulse ? {
           boxShadow: ["0 0 0px rgba(99, 102, 241, 0)", "0 0 30px rgba(99, 102, 241, 0.4)", "0 0 0px rgba(99, 102, 241, 0)"],
           borderColor: ["rgba(255,255,255,0.1)", "rgba(99,102,241,0.5)", "rgba(255,255,255,0.1)"]
         } : {}}
@@ -142,7 +154,7 @@ export default function LiveSMSFeed() {
         className="bg-slate-900/40 border border-white/10 rounded-[2rem] p-4 backdrop-blur-2xl relative overflow-hidden shadow-2xl group transition-all hover:bg-slate-900/60"
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover:bg-indigo-500/10 transition-all duration-700" />
-        
+
         <div className="flex items-center justify-between mb-4 relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-indigo-500/20 rounded-xl flex items-center justify-center border border-indigo-500/30">
@@ -183,8 +195,8 @@ export default function LiveSMSFeed() {
                   <p className="text-sm font-semibold text-slate-200 leading-tight">"{activeSms}"</p>
                   {isProcessing && (
                     <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-2 flex items-center gap-2">
-                       <Loader2 className="w-3 h-3 animate-spin" />
-                       MAYA Parsing...
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      MAYA Parsing...
                     </p>
                   )}
                 </div>
@@ -203,15 +215,15 @@ export default function LiveSMSFeed() {
             <Smartphone className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
             Connect SMS (Android)
           </button>
-          
+
           <p className="text-[9px] font-black text-slate-600 text-center uppercase tracking-widest">
             ⚡ Simulation Mode (Production architecture)
           </p>
         </div>
       </motion.div>
 
-      {/* TOAST SYSTEM - REDESIGNED FOR MOBILE ALERT FEEL */}
-      <div className="fixed top-8 right-8 z-[999999] pointer-events-none flex flex-col items-end gap-3 w-full max-w-sm">
+      {/* TOAST SYSTEM - MOVED BELOW TOPBAR (top-24) */}
+      <div className="fixed top-24 right-8 z-[999999] pointer-events-none flex flex-col items-end gap-3 w-full max-w-sm">
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (
             <motion.div
@@ -220,15 +232,13 @@ export default function LiveSMSFeed() {
               initial={{ opacity: 0, y: -40, scale: 0.8, filter: 'blur(10px)' }}
               animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
               exit={{ opacity: 0, scale: 0.8, x: 20, transition: { duration: 0.2 } }}
-              className={`w-full p-4 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.5)] border backdrop-blur-3xl flex items-center gap-4 pointer-events-auto ${
-                toast.type === 'sms' 
-                  ? "bg-slate-950/80 border-white/10" 
+              className={`w-full p-4 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.5)] border backdrop-blur-3xl flex items-center gap-4 pointer-events-auto ${toast.type === 'sms'
+                  ? "bg-slate-950/80 border-white/10"
                   : "bg-emerald-950/80 border-emerald-500/20"
-              }`}
+                }`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ${
-                toast.type === 'sms' ? "bg-indigo-600 text-white" : "bg-emerald-600 text-white"
-              }`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ${toast.type === 'sms' ? "bg-indigo-600 text-white" : "bg-emerald-600 text-white"
+                }`}>
                 {toast.type === 'sms' ? <Smartphone className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}
               </div>
               <div className="flex-1 overflow-hidden">
@@ -251,12 +261,12 @@ export default function LiveSMSFeed() {
       <AnimatePresence>
         {showAndroidModal && (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAndroidModal(false)}
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" 
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -265,7 +275,7 @@ export default function LiveSMSFeed() {
               className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 blur-[80px] rounded-full" />
-              
+
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-6">
                   <div className="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-lg">
@@ -275,29 +285,29 @@ export default function LiveSMSFeed() {
                     <X className="w-6 h-6" />
                   </button>
                 </div>
-                
+
                 <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-4">Mobile Integration</h2>
-                
+
                 <div className="space-y-4 mb-8">
                   <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
                     <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                      Real-time SMS ingestion is supported via the <span className="text-indigo-400 font-bold">VyapaarMind Android Bridge</span>. 
-                      The app uses secure device permissions (<code className="bg-white/5 py-0.5 px-1.5 rounded text-indigo-400">READ_SMS</code>) 
+                      Real-time SMS ingestion is supported via the <span className="text-indigo-400 font-bold">VyapaarMind Android Bridge</span>.
+                      The app uses secure device permissions (<code className="bg-white/5 py-0.5 px-1.5 rounded text-indigo-400">READ_SMS</code>)
                       to instantly sync UPI and banking alerts.
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center gap-3 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl text-emerald-400">
                     <ShieldCheck className="w-5 h-5 flex-shrink-0" />
                     <p className="text-xs font-bold uppercase tracking-wider">End-to-End Encrypted Data Bridge</p>
                   </div>
-                  
+
                   <div className="flex items-center gap-3 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl text-amber-500 text-xs font-bold leading-snug">
                     <Info className="w-5 h-5 flex-shrink-0" />
                     <p>THIS DEMO: Currently simulating live financial data ingestion to demonstrate the AI parsing engine.</p>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={() => setShowAndroidModal(false)}
                   className="w-full py-4 bg-white text-slate-950 font-black uppercase text-xs tracking-[0.3em] rounded-2xl hover:bg-slate-200 transition-all active:scale-[0.98]"

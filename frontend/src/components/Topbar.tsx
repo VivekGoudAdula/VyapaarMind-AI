@@ -4,6 +4,12 @@ import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+const formatCurrency = (num: number) => {
+  if (num >= 10000000) return "₹" + (num / 10000000).toFixed(2) + " Cr";
+  if (num >= 100000) return "₹" + (num / 100000).toFixed(2) + " L";
+  return "₹" + num.toLocaleString();
+};
+
 export default function Topbar() {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
@@ -18,7 +24,7 @@ export default function Topbar() {
 
   useEffect(() => {
     fetchBalance();
-    
+
     window.addEventListener('transaction-updated', fetchBalance);
     return () => window.removeEventListener('transaction-updated', fetchBalance);
   }, [user]);
@@ -32,17 +38,17 @@ export default function Topbar() {
         </div>
         <h1 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Overview / Dashboard</h1>
       </div>
-      
+
       <div className="flex items-center gap-8">
         <div className="flex flex-col items-end">
           <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Available Liquidity</span>
           <span className="text-xl font-black text-white tracking-tight">
-            {balance !== null ? `₹${balance.toLocaleString()}` : '₹0'}
+            {balance !== null ? formatCurrency(balance) : '₹0'}
           </span>
         </div>
-        
+
         <div className="h-10 w-px bg-white/10" />
-        
+
         <div className="flex items-center gap-4">
           <button className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all relative group">
             <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />

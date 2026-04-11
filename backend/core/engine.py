@@ -1,6 +1,18 @@
 from typing import List, Dict
 from models import Transaction
 import datetime
+import os
+import sys
+
+# Add parent directory to sys.path to allow importing from 'ml' package
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from ml.ml_risk_model import predict_risk
+    from ml.ml_forecast import forecast_balance
+except ImportError:
+    predict_risk = None
+    forecast_balance = None
 
 class VyapaarEngine:
     @staticmethod
@@ -65,3 +77,61 @@ class VyapaarEngine:
         avg_daily_expense = summary["total_expenses"] / delta
         prediction = summary["balance"] - (avg_daily_expense * days)
         return round(prediction, 2)
+
+    @staticmethod
+    def get_ml_risk(summary: Dict, transactions: List[Transaction]) -> str:
+        """
+        Uses the ML Decision Tree model to predict risk level.
+        """
+        if predict_risk is None:
+            return "UNKNOWN (ML Model Not Loaded)"
+        
+        balance = summary.get("balance", 0)
+        
+        # Calculate daily burn (avg of last 7 days or all if less)
+        expense_amounts = [t.amount for t in transactions if t.type == "expense"]
+        if not expense_amounts:
+            daily_burn = 0
+        else:
+            daily_burn = sum(expense_amounts) / max(1, len(set(t.date for t in transactions if t.type == "expense")))
+
+        cashflow = summary.get("total_income", 0) - summary.get("total_expenses", 0)
+        
+        try:
+            risk = predict_risk(balance, daily_burn, cashflow)
+            return risk
+        except Exception as e:
+            print(f"Error in ML Risk Prediction: {e}")
+            return "ERROR"
+
+    @staticmethod
+    def get_ml_forecast(transactions: List[Transaction], days: int = 90) -> List[float]:
+        """
+        Uses Linear Regression to forecast future balances.
+        """
+        if forecast_balance is None:
+            return []
+            
+        # Group transactions by date to get daily balances
+        daily_balances = {}
+        # This is a simplified reconstruction of balance history
+        sorted_txs = sorted(transactions, key=lambda x: x.date)
+        current_bal = 0
+        for tx in sorted_txs:
+            if tx.type == "income":
+                current_bal += tx.amount
+            else:
+                current_bal -= tx.amount
+            daily_balances[tx.date] = current_bal
+            
+        history = [daily_balances[date] for date in sorted(daily_balances.keys())]
+        
+        if not history:
+            return []
+            
+        try:
+            predictions = forecast_balance(history)
+            return predictions[:days]
+        except Exception as e:
+            print(f"Error in ML Forecasting: {e}")
+            return []

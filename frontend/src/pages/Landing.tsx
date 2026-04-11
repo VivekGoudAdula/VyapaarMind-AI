@@ -1,16 +1,16 @@
 import React, { useRef } from 'react';
 import { motion, useScroll, useTransform, useSpring } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { 
-  ArrowRight, 
-  Bot, 
-  TrendingUp, 
-  ShieldAlert, 
-  CheckCircle2, 
-  Sparkles, 
-  Zap, 
-  BarChart3, 
-  Globe, 
+import {
+  ArrowRight,
+  Bot,
+  TrendingUp,
+  ShieldAlert,
+  CheckCircle2,
+  Sparkles,
+  Zap,
+  BarChart3,
+  Globe,
   Lock,
   ChevronRight
 } from 'lucide-react';
@@ -48,7 +48,7 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-        <motion.div 
+        <motion.div
           style={{ opacity, scale, y }}
           className="max-w-7xl mx-auto px-8 grid lg:grid-cols-2 gap-16 items-center relative z-10"
         >
@@ -62,7 +62,7 @@ export default function Landing() {
               <Sparkles className="w-3 h-3" />
               The Future of Indian Business
             </motion.div>
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
@@ -74,7 +74,7 @@ export default function Landing() {
                 MIND.
               </span>
             </motion.h1>
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
@@ -82,7 +82,7 @@ export default function Landing() {
             >
               VyapaarMind is the AI-first CFO platform that turns your business data into strategic growth. Predict cashflow, mitigate risks, and scale faster.
             </motion.p>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
@@ -93,9 +93,9 @@ export default function Landing() {
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <div className="flex -space-x-3">
-                {[1,2,3,4].map(i => (
+                {[1, 2, 3, 4].map(i => (
                   <div key={i} className="w-12 h-12 rounded-full border-4 border-[#020617] bg-slate-800 overflow-hidden">
-                    <img src={`https://picsum.photos/seed/${i+10}/100/100`} alt="User" referrerPolicy="no-referrer" />
+                    <img src={`https://picsum.photos/seed/${i + 10}/100/100`} alt="User" referrerPolicy="no-referrer" />
                   </div>
                 ))}
                 <div className="w-12 h-12 rounded-full border-4 border-[#020617] bg-indigo-600 flex items-center justify-center text-xs font-bold">
@@ -128,7 +128,7 @@ export default function Landing() {
       {/* Bento Grid Features */}
       <section id="features" className="py-32 px-8 max-w-7xl mx-auto">
         <div className="text-center mb-24">
-          <motion.h2 
+          <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -143,7 +143,7 @@ export default function Landing() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
-          <BentoCard 
+          <BentoCard
             className="md:col-span-2 md:row-span-2 bg-gradient-to-br from-indigo-600 to-purple-700 overflow-hidden group"
             title="MAYA AI Engine"
             description="Our proprietary LLM trained on Indian business contexts, tax laws, and market trends."
@@ -164,28 +164,28 @@ export default function Landing() {
             </div>
           </BentoCard>
 
-          <BentoCard 
+          <BentoCard
             className="bg-slate-900 border border-white/5"
             title="Real-time Sync"
             description="Connect your bank accounts and ERPs instantly."
             icon={<Zap className="w-6 h-6 text-amber-400" />}
           />
 
-          <BentoCard 
+          <BentoCard
             className="bg-slate-900 border border-white/5"
             title="Risk Mitigation"
             description="Identify leaks before they drain your runway."
             icon={<ShieldAlert className="w-6 h-6 text-red-400" />}
           />
 
-          <BentoCard 
+          <BentoCard
             className="md:col-span-1 bg-emerald-600/20 border border-emerald-500/20"
             title="Future Forecast"
             description="12-month predictive modeling with 98% accuracy."
             icon={<TrendingUp className="w-6 h-6 text-emerald-400" />}
           />
 
-          <BentoCard 
+          <BentoCard
             className="md:col-span-2 bg-slate-900 border border-white/5 flex flex-row items-center gap-8"
             title="Global Compliance"
             description="GST, TDS, and international tax standards handled automatically."
@@ -201,7 +201,7 @@ export default function Landing() {
         <div className="absolute inset-0 bg-indigo-600/5 -skew-y-6 origin-right" />
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-24 items-center relative z-10">
           <div className="order-2 lg:order-1">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
@@ -212,7 +212,7 @@ export default function Landing() {
                 <Bot className="w-32 h-32 text-indigo-500/20 group-hover:text-indigo-500/40 transition-colors duration-700" />
               </div>
               {/* Floating UI Elements */}
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, -20, 0] }}
                 transition={{ duration: 4, repeat: Infinity }}
                 className="absolute top-12 left-12 p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10"
@@ -222,7 +222,7 @@ export default function Landing() {
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Analyzing Cashflow</span>
                 </div>
               </motion.div>
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, 20, 0] }}
                 transition={{ duration: 5, repeat: Infinity, delay: 1 }}
                 className="absolute bottom-12 right-12 p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10"
@@ -268,7 +268,7 @@ export default function Landing() {
 
       {/* CTA Section */}
       <section className="py-32 px-8">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -304,7 +304,7 @@ export default function Landing() {
               The AI CFO for the next generation of Indian entrepreneurs.
             </p>
             <div className="flex gap-4">
-              {[1,2,3].map(i => <div key={i} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer" />)}
+              {[1, 2, 3].map(i => <div key={i} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer" />)}
             </div>
           </div>
           <div>
@@ -340,7 +340,7 @@ export default function Landing() {
 
 function BentoCard({ title, description, icon, className, children }: any) {
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}

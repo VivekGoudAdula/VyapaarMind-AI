@@ -27,6 +27,7 @@ class SummaryResponse(BaseModel):
     balance: float
     category_breakdown: Dict[str, float]
     risk_flags: List[str]
+    ml_risk: Optional[str] = None
 
 class UserBase(BaseModel):
     name: str
@@ -118,3 +119,4 @@ class ForecastResponse(BaseModel):
     months: List[ForecastMonth]
     trend: str
     risk: str
+    ml_prediction: Optional[List[float]] = None

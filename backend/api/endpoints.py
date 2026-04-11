@@ -14,6 +14,7 @@ from email import encoders
 import base64
 from dotenv import load_dotenv
 from groq import Groq
+from core.engine import VyapaarEngine
 
 from dotenv import load_dotenv
 import os
@@ -320,12 +321,21 @@ def get_summary(user_id: str, db: Session = Depends(get_db)):
     elif balance < 20000:
         risk_flags.append("Low balance warning")
         
+    # Use ML Risk Engine
+    summary_data = {
+        "balance": balance,
+        "total_income": total_income,
+        "total_expenses": total_expenses
+    }
+    ml_risk = VyapaarEngine.get_ml_risk(summary_data, transactions)
+        
     return {
         "total_income": total_income,
         "total_expenses": total_expenses,
         "balance": balance,
         "category_breakdown": category_breakdown,
-        "risk_flags": risk_flags
+        "risk_flags": risk_flags,
+        "ml_risk": ml_risk
     }
 
 # Sync user endpoint to keep it for auth integration if needed
@@ -401,7 +411,7 @@ def get_ai_chat(request: schemas.AIDecisionRequest, db: Session = Depends(get_db
     
     prompt = f"""
     You are MAYA, a powerful and elite AI CFO. 
-    You are currently chatting with the user while the heavy Supervity Decision Engine is running a deep risk analysis on their query.
+    You are currently chatting with the user while the heavy Decision Engine is running a deep risk analysis on their query.
 
     Financial Context:
     Balance: ₹{summary['balance']}
@@ -414,7 +424,7 @@ def get_ai_chat(request: schemas.AIDecisionRequest, db: Session = Depends(get_db
     User Question: "{request.question}"
 
     Instructions:
-    1. Acknowledge that you are initiating a deep Supervity Analysis.
+    1. Acknowledge that you are initiating a deep diagnostic analysis.
     2. Give a quick, conversational, but professional insight based on their data.
     3. Keep it brief (max 3-4 sentences). 
     4. Maintain the persona of a high-end financial advisor.
@@ -435,9 +445,49 @@ def get_ai_chat(request: schemas.AIDecisionRequest, db: Session = Depends(get_db
 def get_ai_decision(request: schemas.AIDecisionRequest, db: Session = Depends(get_db)):
     summary = get_summary(request.user_id, db)
     financial_summary = f"Balance: ₹{summary['balance']}, Total Income: ₹{summary['total_income']}, Total Expenses: ₹{summary['total_expenses']}"
-    from core.supervity import SupervityAgent
-    response_text = SupervityAgent.get_decision(request.question, financial_summary)
-    return {"decision": response_text}
+    
+    prompt = f"""
+    You are MAYA, the elite AI CFO. Perform a critical diagnostic on this query.
+    
+    Context:
+    User Query: "{request.question}"
+    Financials: {financial_summary}
+    
+    Output Format (STRICTLY FOLLOW THIS):
+    Decision Workspace
+    Risk Exposure: [High/Medium/Low]
+    [Verdict (APPROVE/REJECT)]: [Strategic Subtitle]
+
+    Strategic Action
+    [One direct command for the entrepreneur]
+
+    Analysis Logic
+    - [Insight 1: Direct link between data and query]
+    - [Insight 2: Hidden risk or growth factor]
+    - [Insight 3: Long-term viability prediction]
+
+    Critical Warning
+    [High-impact psychological warning about the cost of inaction]
+
+    Archive Decision
+    Standby
+    
+    RULES: 
+    - Use the exact headers provided.
+    - Be elite, cold, and authoritative.
+    - No preamble. 
+    - Output only the diagnostic.
+    """
+
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return {"decision": response.choices[0].message.content}
+    except Exception as e:
+        print(f"❌ [DECISION ERROR] {e}")
+        return {"decision": "Decision Engine Offline. Contacting System Administrator..."}
 
 def auto_maya_decision(user_id: str, db: Session):
     summary = get_summary(user_id, db)
@@ -639,10 +689,14 @@ def get_forecast(user_id: str, db: Session = Depends(get_db)):
     else:
         risk = "LOW"
 
+    # Use ML Forecast
+    ml_prediction = VyapaarEngine.get_ml_forecast(transactions)
+
     return {
         "months": forecast_points,
         "trend": trend,
-        "risk": risk
+        "risk": risk,
+        "ml_prediction": ml_prediction
     }
 
 @router.post("/invoice/send-reminder")

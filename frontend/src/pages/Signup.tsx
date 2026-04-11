@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Bot, ArrowRight, Sparkles, CheckCircle2, TrendingUp, Globe } from 'lucide-react';
@@ -6,6 +6,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import MayaOrb from '../components/MayaOrb';
 import GoogleButton from '../components/GoogleButton';
+import { useAuth } from '../context/AuthContext';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -17,7 +18,14 @@ export default function Signup() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +83,7 @@ export default function Signup() {
                 Indian Business.
               </span>
             </h2>
-            
+
             <ul className="space-y-6">
               <li className="flex items-start gap-4">
                 <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center mt-1">
@@ -111,7 +119,7 @@ export default function Signup() {
 
       {/* Right Side: Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-10 overflow-y-auto">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
@@ -145,12 +153,12 @@ export default function Signup() {
                   {error}
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">First Name</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleChange}
@@ -161,8 +169,8 @@ export default function Signup() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Last Name</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleChange}
@@ -175,8 +183,8 @@ export default function Signup() {
 
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Business Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="businessName"
                   value={formData.businessName}
                   onChange={handleChange}
@@ -188,8 +196,8 @@ export default function Signup() {
 
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
@@ -198,11 +206,11 @@ export default function Signup() {
                   className="w-full px-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-white placeholder:text-slate-600"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Password</label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
@@ -211,8 +219,8 @@ export default function Signup() {
                   className="w-full px-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-white placeholder:text-slate-600"
                 />
               </div>
-              
-              <button 
+
+              <button
                 type="submit"
                 disabled={loading}
                 className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/20 mt-6 group disabled:opacity-50 disabled:cursor-not-allowed"
