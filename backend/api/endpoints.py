@@ -227,7 +227,7 @@ def run_alert_engine(user_id: str, db: Session, last_tx: models.Transaction = No
                         We recommend accessing the central command center for a full risk-assessment and to view MAYA's latest strategic interventions.
                     </p>
                     <div style="margin-top: 20px;">
-                        <a href="http://localhost:5173/dashboard" style="display: inline-block; background-color: #0f172a; color: white; padding: 14px 28px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Access Command Center</a>
+                        <a href="{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/dashboard" style="display: inline-block; background-color: #0f172a; color: white; padding: 14px 28px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Access Command Center</a>
                     </div>
                 </div>
             </div>
