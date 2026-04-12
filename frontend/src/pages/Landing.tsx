@@ -15,6 +15,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import MayaOrb from '../components/MayaOrb';
+import MayaAvatar from '../components/MayaAvatar';
 
 export default function Landing() {
   const containerRef = useRef(null);
@@ -32,7 +33,7 @@ export default function Landing() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-[100] px-8 py-6 flex items-center justify-between max-w-7xl mx-auto backdrop-blur-md bg-[#020617]/50 border-b border-white/5">
         <div className="flex items-center gap-2 font-bold text-2xl tracking-tight">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">V</div>
+          <img src="/maya-genie.png" alt="Logo" className="w-10 h-10 object-contain" />
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">VyapaarMind</span>
         </div>
         <div className="hidden md:flex items-center gap-8">
@@ -113,7 +114,7 @@ export default function Landing() {
           >
             <div className="absolute inset-0 bg-indigo-500/20 blur-[150px] rounded-full animate-pulse" />
             <div className="relative z-10 scale-125">
-              <MayaOrb />
+               <MayaAvatar mode="hero" />
             </div>
           </motion.div>
         </motion.div>
@@ -297,7 +298,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12">
           <div className="col-span-2">
             <div className="flex items-center gap-2 font-bold text-2xl tracking-tight mb-6">
-              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">V</div>
+              <img src="/maya-genie.png" alt="Logo" className="w-10 h-10 object-contain" />
               <span>VyapaarMind</span>
             </div>
             <p className="text-slate-500 max-w-xs mb-8">

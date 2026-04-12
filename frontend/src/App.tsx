@@ -10,6 +10,7 @@ import Invoices from './pages/Invoices';
 import Forecast from './pages/Forecast';
 import DataIntelligence from './pages/DataIntelligence';
 import Layout from './components/Layout';
+import MayaSystem from './components/MayaSystem';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <MayaSystem />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />

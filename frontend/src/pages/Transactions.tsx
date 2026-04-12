@@ -38,24 +38,51 @@ export default function Transactions() {
     e.preventDefault();
     if (!user?.uid || submitting) return;
 
+    const amountNum = Number(formData.amount);
+    const tempId = Date.now(); // Temporary ID for optimistic UI
+    const newTx = {
+      id: tempId,
+      amount: amountNum,
+      type: formData.type,
+      category: formData.category,
+      date: formData.date,
+      isOptimistic: true // Flag to show syncing state if needed
+    };
+
+    // 1. Optimistic Update
+    const previousTransactions = [...transactions];
+    setTransactions([newTx, ...transactions]);
+    setIsModalOpen(false);
+    
+    // 2. Dispatch event immediately for Topbar and other components
+    // Note: Since backend calculation is now backgrounded, we can fire this now.
+    // However, Topbar might fetch the OLD balance if the network request reaches before the commit.
+    // We'll fire it once now for UX, and again after the server confirms.
+    window.dispatchEvent(new Event('transaction-updated'));
+
     setSubmitting(true);
     fetch(`${API_URL}/transactions/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         ...formData, 
-        amount: Number(formData.amount),
+        amount: amountNum,
         user_id: user.uid
       })
     })
     .then(res => res.json())
     .then(() => {
+      // 3. Finalize on success
       fetchTransactions();
       window.dispatchEvent(new Event('transaction-updated'));
-      setIsModalOpen(false);
       setFormData({ amount: '', type: 'expense', category: '', date: new Date().toISOString().split('T')[0] });
     })
-    .catch(err => console.error("Error adding transaction:", err))
+    .catch(err => {
+      console.error("Error adding transaction:", err);
+      // 4. Rollback on failure
+      setTransactions(previousTransactions);
+      alert("Failed to sync with ledger. Please check your connection.");
+    })
     .finally(() => setSubmitting(false));
   };
 

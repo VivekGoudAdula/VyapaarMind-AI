@@ -128,3 +128,11 @@ class ForecastResponse(BaseModel):
     trend: str
     risk: str
     ml_prediction: Optional[List[float]] = None
+
+class MayaChatRequest(BaseModel):
+    user_id: str
+    message: str
+    user_name: Optional[str] = "Partner"
+
+class MayaChatResponse(BaseModel):
+    response: str

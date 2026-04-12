@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List
@@ -51,8 +51,8 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
         # Attach HTML content
         msg.attach(MIMEText(body_html, "html"))
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
+        # Use SMTP_SSL on port 465 for better compatibility with cloud providers
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         server.login(sender_email, sender_password)
         server.send_message(msg)
         server.quit()
@@ -84,14 +84,14 @@ def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
             if "base64," in pdf_base64:
                 pdf_base64 = pdf_base64.split("base64,")[1]
             
-            payload = MIMEBase('application', 'octate-stream')
+            payload = MIMEBase('application', 'octet-stream')
             payload.set_payload(base64.b64decode(pdf_base64))
             encoders.encode_base64(payload)
             payload.add_header('Content-Disposition', 'attachment', filename="Invoice.pdf")
             msg.attach(payload)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
+        # Use SMTP_SSL on port 465 for better compatibility with cloud providers
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         server.login(sender_email, sender_password)
         server.send_message(msg)
         server.quit()
@@ -100,151 +100,158 @@ def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
     except Exception as e:
         print(f"❌ [MAIL ERROR] {e}")
 
-def run_alert_engine(user_id: str, db: Session, last_tx: models.Transaction = None):
-    summary = get_summary(user_id, db)
-    prediction = predict_financial_health(user_id, db)
+def run_alert_engine_task(user_id: str, transaction_id: int = None):
+    """
+    Background task to run risk engine and send emails.
+    Handles its own DB session to avoid lifetime issues.
+    """
+    db = SessionLocal()
+    try:
+        # Re-fetch the transaction if ID provided
+        last_tx = None
+        if transaction_id:
+            last_tx = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+            
+        summary = get_summary(user_id, db)
+        prediction = predict_financial_health(user_id, db)
 
-    alerts = []
+        alerts = []
 
-    # 1. Logic for alerts
-    if summary["balance"] < 20000:
-        alerts.append({
-            "title": "Low Balance Warning",
-            "message": "Balance below ₹20,000. Immediate attention required.",
-            "severity": "High",
-            "color": "#ef4444"
-        })
+        # 1. Logic for alerts
+        if summary["balance"] < 20000:
+            alerts.append({
+                "title": "Low Balance Warning",
+                "message": "Balance below ₹20,000. Immediate attention required.",
+                "severity": "High",
+                "color": "#ef4444"
+            })
 
-    # NEW: Detect Huge Single Loss / Large Transaction
-    if last_tx and last_tx.type == "expense" and last_tx.amount >= 10000:
-        alerts.append({
-            "title": "Huge Transaction Detected",
-            "message": f"Significant outflow of ₹{last_tx.amount:,.0f} detected in category '{last_tx.category}'.",
-            "severity": "High",
-            "color": "#b91c1c"
-        })
+        # NEW: Detect Huge Single Loss / Large Transaction
+        if last_tx and last_tx.type == "expense" and last_tx.amount >= 10000:
+            alerts.append({
+                "title": "Huge Transaction Detected",
+                "message": f"Significant outflow of ₹{last_tx.amount:,.0f} detected in category '{last_tx.category}'.",
+                "severity": "High",
+                "color": "#b91c1c"
+            })
 
-    if summary["total_expenses"] > summary["total_income"] and summary["total_income"] > 0:
-        alerts.append({
-            "title": "Cashflow Risk",
-            "message": "Expenses exceed income. Your cashflow is currently unstable.",
-            "severity": "High",
-            "color": "#f59e0b"
-        })
+        if summary["total_expenses"] > summary["total_income"] and summary["total_income"] > 0:
+            alerts.append({
+                "title": "Cashflow Risk",
+                "message": "Expenses exceed income. Your cashflow is currently unstable.",
+                "severity": "High",
+                "color": "#f59e0b"
+            })
 
-    if prediction.get("days_to_risk") is not None and prediction["days_to_risk"] <= 7:
-        alerts.append({
-            "title": "Runway Critical",
-            "message": f"Your balance will hit critical levels in {prediction['days_to_risk']} days.",
-            "severity": "High",
-            "color": "#b91c1c"
-        })
+        if prediction.get("days_to_risk") is not None and prediction["days_to_risk"] <= 7:
+            alerts.append({
+                "title": "Runway Critical",
+                "message": f"Your balance will hit critical levels in {prediction['days_to_risk']} days.",
+                "severity": "High",
+                "color": "#b91c1c"
+            })
 
-    # Positive Signals
-    if summary["total_income"] > summary["total_expenses"] and summary["total_income"] > 0:
-        alerts.append({
-            "title": "Positive Cashflow",
-            "message": "Great job! Your income exceeds expenses. You're cashflow positive.",
-            "severity": "Positive",
-            "color": "#10b981"
-        })
+        # Positive Signals
+        if summary["total_income"] > summary["total_expenses"] and summary["total_income"] > 0:
+            alerts.append({
+                "title": "Positive Cashflow",
+                "message": "Great job! Your income exceeds expenses. You're cashflow positive.",
+                "severity": "Positive",
+                "color": "#10b981"
+            })
+            
+        if summary["balance"] > 50000:
+            alerts.append({
+                "title": "Savings Milestone",
+                "message": "Strong financial position. Your balance just crossed ₹50,000.",
+                "severity": "Positive",
+                "color": "#6366f1"
+            })
+
+        if not alerts:
+            return []
+
+        # 2. Save and De-duplicate
+        print(f"[ENGINE] Checking alerts for {user_id}...")
+        # 3. Check for high severity to trigger MAYA
+        has_high_risk = any(a["severity"] == "High" for a in alerts)
+        if has_high_risk:
+            print(f"[ENGINE] HIGH RISK ACTIVE for {user_id}. TRIGGERING MAYA ANALYSIS...")
+            auto_maya_decision(user_id, db)
+        else:
+            print(f"[ENGINE] No high risks found for {user_id}. Maya remains dormant.")
+
+        # 4. Save and De-duplicate for email dispatch
+        existing_messages = {a[0] for a in db.query(models.Alert.message).filter(models.Alert.user_id == user_id).all()}
         
-    if summary["balance"] > 50000:
-        alerts.append({
-            "title": "Savings Milestone",
-            "message": "Strong financial position. Your balance just crossed ₹50,000.",
-            "severity": "Positive",
-            "color": "#6366f1"
-        })
+        for alert in alerts:
+            if alert["message"] not in existing_messages:
+                db_alert = models.Alert(user_id=user_id, message=alert["message"], severity=alert["severity"])
+                db.add(db_alert)
+        
+        db.commit()
 
-    if not alerts:
-        return []
+        # 5. Build Bundled HTML Email
+        user = db.query(models.User).filter(models.User.firebase_uid == user_id).first()
+        user_email = user.email if user else "test@example.com"
+        user_name = user.name if user else "Vyapaari"
 
-    # 2. Save and De-duplicate
-    print(f"[ENGINE] Checking alerts for {user_id}...")
-    # 3. Check for high severity to trigger MAYA (Check all active signals, even if already in DB)
-    has_high_risk = any(a["severity"] == "High" for a in alerts)
-    if has_high_risk:
-        print(f"[ENGINE] HIGH RISK ACTIVE for {user_id}. TRIGGERING MAYA ANALYSIS...")
-        auto_maya_decision(user_id, db)
-    else:
-        print(f"[ENGINE] No high risks found for {user_id}. Maya remains dormant.")
-
-    # 4. Save and De-duplicate for email dispatch
-    existing_messages = {a[0] for a in db.query(models.Alert.message).filter(models.Alert.user_id == user_id).all()}
-    
-    for alert in alerts:
-        if alert["message"] not in existing_messages:
-            db_alert = models.Alert(user_id=user_id, message=alert["message"], severity=alert["severity"])
-            db.add(db_alert)
-    
-    db.commit()
-
-    # CRITICAL: User requested 'mails mandatory for everything'. 
-    # We will dispatch the email for ALL active alerts, not just 'new' ones.
-    print(f"[ENGINE] {len(alerts)} SIGNALS ACTIVE! Preparing dispatch...")
-    
-    # 5. Build Bundled HTML Email
-    user = db.query(models.User).filter(models.User.firebase_uid == user_id).first()
-    user_email = user.email if user else "test@example.com"
-    user_name = user.name if user else "Vyapaari"
-
-    alerts_html = ""
-    for a in alerts:
-        alerts_html += f"""
-        <div style="background: #ffffff; border-left: 6px solid {a['color']}; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <h3 style="margin: 0 0 5px 0; color: #1e293b; font-size: 18px; text-transform: uppercase;">{a['title']}</h3>
-            <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.5;">{a['message']}</p>
-        </div>
-        """
-
-    main_severity = "High" if any(a["severity"] == "High" for a in alerts) else "Positive"
-    header_color = "#ef4444" if main_severity == "High" else "#10b981"
-
-    email_template = f"""
-    <html>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f9; padding: 40px; margin: 0;">
-        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e1e8ed;">
-            <div style="background-color: #0f172a; padding: 30px; text-align: left; border-bottom: 4px solid {header_color};">
-                <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: white; letter-spacing: 0.05em; text-transform: uppercase;">VyapaarMind AI</h1>
-                <p style="margin: 5px 0 0 0; color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.2em;">Autonomous Intelligence Notification</p>
+        alerts_html = ""
+        for a in alerts:
+            alerts_html += f"""
+            <div style="background: #ffffff; border-left: 6px solid {a['color']}; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h3 style="margin: 0 0 5px 0; color: #1e293b; font-size: 18px; text-transform: uppercase;">{a['title']}</h3>
+                <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.5;">{a['message']}</p>
             </div>
-            <div style="padding: 40px;">
-                <p style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;">Security Advisory</p>
-                <h2 style="color: #1e293b; margin-top: 0; font-size: 22px; font-weight: 800;">Financial Status Update</h2>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 30px;">
-                    Dear {user_name},<br><br>
-                    Our autonomous monitoring system has detected significant activity within your business ledger. Below is the verified intelligence report for your immediate review:
-                </p>
-                
-                <div style="margin-bottom: 30px;">
-                   {alerts_html}
-                </div>
+            """
 
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; border-radius: 8px; margin-top: 20px;">
-                    <p style="margin: 0; color: #1e293b; font-size: 14px; font-weight: 700;">Strategic Recommendation</p>
-                    <p style="margin: 10px 0 0 0; color: #64748b; font-size: 13px; line-height: 1.5;">
-                        We recommend accessing the central command center for a full risk-assessment and to view MAYA's latest strategic interventions.
+        main_severity = "High" if any(a["severity"] == "High" for a in alerts) else "Positive"
+        header_color = "#ef4444" if main_severity == "High" else "#10b981"
+
+        email_template = f"""
+        <html>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f9; padding: 40px; margin: 0;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e1e8ed;">
+                <div style="background-color: #0f172a; padding: 30px; text-align: left; border-bottom: 4px solid {header_color};">
+                    <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: white; letter-spacing: 0.05em; text-transform: uppercase;">VyapaarMind AI</h1>
+                    <p style="margin: 5px 0 0 0; color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.2em;">Autonomous Intelligence Notification</p>
+                </div>
+                <div style="padding: 40px;">
+                    <p style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;">Security Advisory</p>
+                    <h2 style="color: #1e293b; margin-top: 0; font-size: 22px; font-weight: 800;">Financial Status Update</h2>
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 30px;">
+                        Dear {user_name},<br><br>
+                        Our autonomous monitoring system has detected significant activity within your business ledger. Below is the verified intelligence report for your immediate review:
                     </p>
-                    <div style="margin-top: 20px;">
-                        <a href="{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/dashboard" style="display: inline-block; background-color: #0f172a; color: white; padding: 14px 28px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Access Command Center</a>
+                    
+                    <div style="margin-bottom: 30px;">
+                       {alerts_html}
+                    </div>
+
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; border-radius: 8px; margin-top: 20px;">
+                        <p style="margin: 0; color: #1e293b; font-size: 14px; font-weight: 700;">Strategic Recommendation</p>
+                        <p style="margin: 10px 0 0 0; color: #64748b; font-size: 13px; line-height: 1.5;">
+                            We recommend accessing the central command center for a full risk-assessment and to view MAYA's latest strategic interventions.
+                        </p>
+                        <div style="margin-top: 20px;">
+                            <a href="{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/dashboard" style="display: inline-block; background-color: #0f172a; color: white; padding: 14px 28px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Access Command Center</a>
+                        </div>
                     </div>
                 </div>
+                <div style="background-color: #ffffff; padding: 30px; border-top: 1px solid #e1e8ed; text-align: left; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+                    © 2026 VyapaarMind AI Financial Systems. All rights reserved.
+                </div>
             </div>
-            <div style="background-color: #ffffff; padding: 30px; border-top: 1px solid #e1e8ed; text-align: left; color: #94a3b8; font-size: 11px; line-height: 1.6;">
-                <p style="margin: 0 0 10px 0; font-weight: 700; color: #64748b; text-transform: uppercase;">Confidentiality Notice</p>
-                This is an automated advisory from VyapaarMind AI. This communication contains privileged information intended solely for the registered user. If you are not the intended recipient, please notify us immediately. 
-                <br><br>
-                © 2026 VyapaarMind AI Financial Systems. All rights reserved. Registered Office: Bengaluru, India.
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+        </body>
+        </html>
+        """
 
-    print(f"[SYSTEM] ATTEMPTING EMAIL DISPATCH TO: {user_email}")
-    send_email(user_email, "", email_template, len(alerts), main_severity)
-    return alerts
+        print(f"[SYSTEM] ATTEMPTING EMAIL DISPATCH TO: {user_email}")
+        send_email(user_email, "", email_template, len(alerts), main_severity)
+    except Exception as e:
+        print(f"❌ [ENGINE TASK ERROR] {e}")
+    finally:
+        db.close()
 
 @router.get("/alerts/{user_id}", response_model=List[schemas.Alert])
 def get_alerts(user_id: str, db: Session = Depends(get_db)):
@@ -266,7 +273,7 @@ def dismiss_alert(alert_id: int, db: Session = Depends(get_db)):
     return {"status": "success", "message": "Alert dismissed"}
 
 @router.post("/transactions/add")
-def add_transaction(transaction: schemas.TransactionCreate, db: Session = Depends(get_db)):
+def add_transaction(transaction: schemas.TransactionCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if not transaction.user_id:
         raise HTTPException(status_code=400, detail="User ID is required")
     
@@ -280,8 +287,8 @@ def add_transaction(transaction: schemas.TransactionCreate, db: Session = Depend
     db.commit()
     db.refresh(db_transaction)
 
-    # Auto-trigger Engine
-    run_alert_engine(transaction.user_id, db, db_transaction)
+    # Auto-trigger Engine in background with fresh DB session
+    background_tasks.add_task(run_alert_engine_task, transaction.user_id, db_transaction.id)
     
     return {"status": "success", "message": "Transaction added"}
 
@@ -741,8 +748,8 @@ def get_forecast(user_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/invoice/send-reminder")
-def send_invoice_reminder(request: schemas.InvoiceReminderRequest, db: Session = Depends(get_db)):
-    print(f"📧 [INVOICE] Sending personalized invoice to {request.email} for {request.amount}")
+def send_invoice_reminder(request: schemas.InvoiceReminderRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    print(f"📧 [INVOICE] Adding background task to send invoice to {request.email}")
     
     subject = f"Invoice {request.invoice_id} from VyapaarMind AI Systems"
     body_html = f"""
@@ -798,6 +805,40 @@ def send_invoice_reminder(request: schemas.InvoiceReminderRequest, db: Session =
     </html>
     """
     
-    send_invoice_email(request.email, subject, body_html, request.pdf_content)
-        
-    return {"status": "success", "message": "Personalized invoice sent successfully"}
+    # Finalize response instantly
+    background_tasks.add_task(send_invoice_email, request.email, subject, body_html, request.pdf_content)
+    
+    return {"status": "success", "message": "Invoice dispatch initiated"}
+@router.post("/maya/chat", response_model=schemas.MayaChatResponse)
+def maya_chat(request: schemas.MayaChatRequest):
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    
+    # Savage CFO Personalities
+    system_prompt = f"""
+    You are MAYA, the world's most elite and autonomous AI CFO for Indian SMEs.
+    Your personality is highly professional, direct, and 'savage'. 
+    You have zero patience for financial incompetence. 
+    You are speaking to {request.user_name}.
+    
+    RULES:
+    1. Identify as MAYA always.
+    2. Be concise. Never write more than 2-3 sentences.
+    3. Use a mix of financial authority and healthy sarcasm.
+    4. If the user asks about money, remind them you are watching their balance.
+    5. Always address them by their name: {request.user_name}.
+    """
+    
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": request.message}
+            ],
+            temperature=0.7,
+            max_tokens=150
+        )
+        return {"response": completion.choices[0].message.content}
+    except Exception as e:
+        print(f"❌ [MAYA ERROR] {e}")
+        return {"response": f"Look, {request.user_name}, my brain is currently recalculating your inevitable bankruptcy. Ask me again in a minute."}

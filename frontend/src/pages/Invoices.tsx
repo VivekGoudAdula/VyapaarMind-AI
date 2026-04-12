@@ -272,68 +272,88 @@ export default function Invoices() {
 function InvoiceCard({ formData, isCaptureMode = false }: { formData: any, isCaptureMode?: boolean }) {
   const cardWidth = isCaptureMode ? '800px' : '400px';
   const cardHeight = isCaptureMode ? '1130px' : '565px';
-  const scale = isCaptureMode ? 1 : 0.5; // Adjusted for preview
+  
+  // Explicit hex colors to bypass html2canvas oklch parsing bug
+  const colors = {
+    indigo600: '#4f46e5',
+    indigo400: '#818cf8',
+    slate900: '#0f172a',
+    slate700: '#334155',
+    slate500: '#64748b',
+    slate400: '#94a3b8',
+    slate100: '#f1f5f9',
+    slate50: '#f8fafc',
+    white: '#ffffff'
+  };
   
   return (
     <div 
-      className="rounded-[2rem] shadow-2xl p-10 flex flex-col relative overflow-hidden"
+      className={`p-10 flex flex-col relative overflow-hidden ${isCaptureMode ? '' : 'rounded-[2rem] shadow-2xl'}`}
       style={{ 
         width: cardWidth, 
         height: cardHeight,
-        backgroundColor: '#ffffff', 
-        color: '#0f172a',
-        flexShrink: 0
+        backgroundColor: colors.white, 
+        color: colors.slate900,
+        flexShrink: 0,
+        borderRadius: isCaptureMode ? '0px' : '2rem',
       }}
     >
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom right, rgba(79,70,229,0.06), transparent)' }} />
+      <div 
+        className="absolute inset-0 pointer-events-none" 
+        style={{ 
+          background: 'linear-gradient(to bottom right, #f5f3ff, transparent)', // Replaced rgba(79,70,229,0.06) with hex gradient
+          opacity: 0.5
+        }} 
+      />
       
       <div className="flex justify-between items-start mb-10 relative z-10">
         <div className="flex items-center gap-3">
-          <Building2 className="w-8 h-8 text-indigo-600" />
-          <span className="font-extrabold text-2xl tracking-tighter text-slate-900">VyapaarMind</span>
+          <img src="/maya-genie.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <span className="font-extrabold text-2xl tracking-tighter" style={{ color: colors.slate900 }}>VyapaarMind</span>
         </div>
         <div className="text-right">
-          <h1 className="text-4xl font-black text-indigo-600 tracking-tighter leading-none mb-1">INVOICE</h1>
-          <p className="text-[10px] font-black uppercase text-slate-400">#{formData.invoiceId}</p>
+          <h1 className="text-4xl font-black tracking-tighter leading-none mb-1" style={{ color: colors.indigo600 }}>INVOICE</h1>
+          <p className="text-[10px] font-black uppercase" style={{ color: colors.slate400 }}>#{formData.invoiceId}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-8 mb-12 relative z-10">
         <div>
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Issued By</label>
+          <label className="text-[10px] font-black uppercase tracking-widest mb-2 block" style={{ color: colors.slate400 }}>Issued By</label>
           <p className="text-sm font-black">VyapaarMind AI Systems</p>
-          <p className="text-xs font-medium text-slate-500 mt-0.5">Bengaluru Innovation Hub, IN</p>
+          <p className="text-xs font-medium mt-0.5" style={{ color: colors.slate500 }}>Bengaluru Innovation Hub, IN</p>
         </div>
         <div className="text-right">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Bill To</label>
+          <label className="text-[10px] font-black uppercase tracking-widest mb-2 block" style={{ color: colors.slate400 }}>Bill To</label>
           <p className="text-sm font-black">{formData.clientName || 'Valued Client'}</p>
-          <p className="text-xs font-medium text-slate-500 mt-0.5">{formData.businessName || 'Business Organization'}</p>
+          <p className="text-xs font-medium mt-0.5" style={{ color: colors.slate500 }}>{formData.businessName || 'Business Organization'}</p>
         </div>
       </div>
 
-      <div className="flex-1 relative z-10">
-        <div className="border-b-2 border-slate-100 mb-6 pb-2">
-          <div className="grid grid-cols-[1fr_100px] text-[10px] font-black uppercase tracking-widest text-slate-400">
+      <div className="flex-1 relative z-10" style={{ borderTop: `1px solid ${colors.slate100}` }}>
+        <div className="mb-6 pb-2" style={{ borderBottom: `2px solid ${colors.slate100}` }}>
+          <div className="grid grid-cols-[1fr_100px] text-[10px] font-black uppercase tracking-widest" style={{ color: colors.slate400 }}>
             <span>Description</span>
             <span className="text-right">Amount</span>
           </div>
         </div>
         <div className="grid grid-cols-[1fr_100px] items-center">
-          <p className="text-sm font-bold text-slate-700">{formData.description || 'Professional SME Services'}</p>
+          <p className="text-sm font-bold" style={{ color: colors.slate700 }}>{formData.description || 'Professional SME Services'}</p>
           <p className="text-sm font-black text-right">₹{Number(formData.amount || 0).toLocaleString()}</p>
         </div>
       </div>
 
       <div className="mt-auto relative z-10">
-        <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Amount due</span>
-          <span className="text-3xl font-black text-indigo-600 tracking-tighter">₹{Number(formData.amount || 0).toLocaleString()}</span>
+        <div className="p-6 rounded-2xl flex justify-between items-center" style={{ backgroundColor: colors.slate50, border: `1px solid ${colors.slate100}` }}>
+          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.slate400 }}>Total Amount due</span>
+          <span className="text-3xl font-black tracking-tighter" style={{ color: colors.indigo600 }}>₹{Number(formData.amount || 0).toLocaleString()}</span>
         </div>
         
         <div className="mt-10 text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Powered by VyapaarMind AI</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em]" style={{ color: colors.indigo400 }}>Powered by VyapaarMind AI</p>
         </div>
       </div>
     </div>
   );
 }
+
