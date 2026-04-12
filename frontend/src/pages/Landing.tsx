@@ -14,8 +14,8 @@ import {
   Lock,
   ChevronRight
 } from 'lucide-react';
-import MayaOrb from '../components/MayaOrb';
-import MayaAvatar from '../components/MayaAvatar';
+// import MayaAvatar from '../components/MayaAvatar';
+// import MayaOrb from '../components/MayaOrb';
 import { useAuth } from '../context/AuthContext';
 
 export default function Landing() {
@@ -44,15 +44,10 @@ export default function Landing() {
           <a href="#pricing" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Pricing</a>
         </div>
         <div className="flex items-center gap-6">
-          {user ? (
-            <Link to="/dashboard" className="px-5 py-2.5 bg-indigo-600 text-white rounded-full text-sm font-bold hover:bg-indigo-700 transition-all">Go to Dashboard</Link>
-          ) : (
-            <>
-              <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Login</Link>
-              <Link to="/signup" className="px-5 py-2.5 bg-white text-black rounded-full text-sm font-bold hover:bg-slate-200 transition-all">Get Started</Link>
-            </>
-          )}
+          <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Login</Link>
+          <Link to="/signup" className="px-5 py-2.5 bg-white text-black rounded-full text-sm font-bold hover:bg-slate-200 transition-all">Get Started</Link>
         </div>
+
       </nav>
 
       {/* Hero Section */}
@@ -97,10 +92,11 @@ export default function Landing() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-col sm:flex-row items-start gap-6"
             >
-              <Link to={user ? "/dashboard" : "/signup"} className="px-10 py-5 bg-indigo-600 text-white rounded-2xl text-lg font-bold hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/40 flex items-center gap-3 group">
-                {user ? "Launch Dashboard" : "Get Started Free"}
-                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
+            <Link to="/signup" className="px-10 py-5 bg-indigo-600 text-white rounded-2xl text-lg font-bold hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/40 flex items-center gap-3 group">
+              Get Started Free
+              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map(i => (
                   <div key={i} className="w-12 h-12 rounded-full border-4 border-[#020617] bg-slate-800 overflow-hidden">
@@ -121,9 +117,10 @@ export default function Landing() {
             className="relative"
           >
             <div className="absolute inset-0 bg-indigo-500/20 blur-[150px] rounded-full animate-pulse" />
-            <div className="relative z-10 scale-125">
-               <MayaAvatar mode="hero" />
+            <div className="relative z-10 flex justify-center">
+               <img src="/maya-genie.png" alt="MAYA" className="w-80 h-80 object-contain animate-float" />
             </div>
+
           </motion.div>
         </motion.div>
 
@@ -290,9 +287,10 @@ export default function Landing() {
               Join 2,000+ Indian businesses making smarter financial decisions with VyapaarMind.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link to={user ? "/dashboard" : "/signup"} className="px-10 py-5 bg-white text-black rounded-2xl text-lg font-bold hover:bg-slate-100 transition-all shadow-2xl">
-                {user ? "Enter Command Center" : "Get Started Now"}
+              <Link to="/signup" className="px-10 py-5 bg-white text-black rounded-2xl text-lg font-bold hover:bg-slate-100 transition-all shadow-2xl">
+                Get Started Now
               </Link>
+
               <button className="px-10 py-5 bg-black/20 backdrop-blur-md border border-white/10 text-white rounded-2xl text-lg font-bold hover:bg-black/30 transition-all">
                 Schedule Demo
               </button>

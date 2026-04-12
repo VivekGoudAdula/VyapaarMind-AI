@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 import { Bot, ArrowRight, Sparkles, ShieldCheck, Zap } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import MayaOrb from '../components/MayaOrb';
+// import MayaOrb from '../components/MayaOrb';
+
 import GoogleButton from '../components/GoogleButton';
 import { useAuth } from '../context/AuthContext';
 
@@ -136,10 +137,10 @@ export default function Login() {
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-            className="mb-12 scale-150"
+            transition={{ duration: 1, delay: 0.2 }}
+            className="mb-12"
           >
-            <MayaOrb />
+            <img src="/maya-genie.png" alt="MAYA" className="w-64 h-64 object-contain mx-auto animate-float" />
           </motion.div>
 
           <motion.div
