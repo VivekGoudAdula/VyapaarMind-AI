@@ -118,7 +118,7 @@ export default function Landing() {
           >
             <div className="absolute inset-0 bg-indigo-500/20 blur-[150px] rounded-full animate-pulse" />
             <div className="relative z-10 flex justify-center">
-               <img src="/maya-genie.png" alt="MAYA" className="w-80 h-80 object-contain animate-float" />
+               <img src="/maya-genie.png" alt="MAYA" className="w-full max-w-[400px] md:max-w-[600px] lg:max-w-[700px] h-auto object-contain animate-float" />
             </div>
 
           </motion.div>
