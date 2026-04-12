@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import MayaOrb from '../components/MayaOrb';
 import MayaAvatar from '../components/MayaAvatar';
+import { useAuth } from '../context/AuthContext';
 
 export default function Landing() {
+  const { user } = useAuth();
   const containerRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -42,8 +44,14 @@ export default function Landing() {
           <a href="#pricing" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Pricing</a>
         </div>
         <div className="flex items-center gap-6">
-          <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Login</Link>
-          <Link to="/signup" className="px-5 py-2.5 bg-white text-black rounded-full text-sm font-bold hover:bg-slate-200 transition-all">Get Started</Link>
+          {user ? (
+            <Link to="/dashboard" className="px-5 py-2.5 bg-indigo-600 text-white rounded-full text-sm font-bold hover:bg-indigo-700 transition-all">Go to Dashboard</Link>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Login</Link>
+              <Link to="/signup" className="px-5 py-2.5 bg-white text-black rounded-full text-sm font-bold hover:bg-slate-200 transition-all">Get Started</Link>
+            </>
+          )}
         </div>
       </nav>
 
@@ -89,8 +97,8 @@ export default function Landing() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-col sm:flex-row items-start gap-6"
             >
-              <Link to="/signup" className="px-10 py-5 bg-indigo-600 text-white rounded-2xl text-lg font-bold hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/40 flex items-center gap-3 group">
-                Launch Dashboard
+              <Link to={user ? "/dashboard" : "/signup"} className="px-10 py-5 bg-indigo-600 text-white rounded-2xl text-lg font-bold hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-500/40 flex items-center gap-3 group">
+                {user ? "Launch Dashboard" : "Get Started Free"}
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <div className="flex -space-x-3">
@@ -282,8 +290,8 @@ export default function Landing() {
               Join 2,000+ Indian businesses making smarter financial decisions with VyapaarMind.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link to="/signup" className="px-10 py-5 bg-white text-black rounded-2xl text-lg font-bold hover:bg-slate-100 transition-all shadow-2xl">
-                Get Started Now
+              <Link to={user ? "/dashboard" : "/signup"} className="px-10 py-5 bg-white text-black rounded-2xl text-lg font-bold hover:bg-slate-100 transition-all shadow-2xl">
+                {user ? "Enter Command Center" : "Get Started Now"}
               </Link>
               <button className="px-10 py-5 bg-black/20 backdrop-blur-md border border-white/10 text-white rounded-2xl text-lg font-bold hover:bg-black/30 transition-all">
                 Schedule Demo

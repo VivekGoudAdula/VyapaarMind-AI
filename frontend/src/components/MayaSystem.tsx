@@ -22,10 +22,6 @@ export default function MayaSystem() {
   const userName = user?.displayName || user?.email?.split('@')[0] || "Partner";
   const location = useLocation();
 
-  // Hide Maya on public pages
-  const hideOnPaths = ['/', '/login', '/signup'];
-  if (hideOnPaths.includes(location.pathname)) return null;
-  
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -66,6 +62,10 @@ export default function MayaSystem() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [chatHistory, isThinking]);
+
+  // Hide Maya on public pages
+  const hideOnPaths = ['/', '/login', '/signup'];
+  if (hideOnPaths.includes(location.pathname)) return null;
 
   const playActivationSound = () => {
     const audio = new Audio(ACTIVATION_SOUND);

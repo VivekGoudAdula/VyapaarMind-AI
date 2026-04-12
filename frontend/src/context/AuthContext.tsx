@@ -18,20 +18,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          await axios.post(`${API_URL}/sync-user`, {
-            name: firebaseUser.displayName || 'Unnamed User',
-            email: firebaseUser.email,
-            firebase_uid: firebaseUser.uid
-          });
-        } catch (error) {
-          console.error('Error syncing user with backend:', error);
-        }
-      }
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+
+      if (firebaseUser) {
+        // Sync user in background without blocking state updates
+        axios.post(`${API_URL}/sync-user`, {
+          name: firebaseUser.displayName || 'Unnamed User',
+          email: firebaseUser.email,
+          firebase_uid: firebaseUser.uid
+        }).catch((error) => {
+          console.error('Error syncing user with backend:', error);
+        });
+      }
     });
 
     return unsubscribe;

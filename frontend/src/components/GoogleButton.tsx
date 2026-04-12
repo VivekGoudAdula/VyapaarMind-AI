@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { auth, googleProvider } from '../lib/firebase';
 import { signInWithPopup } from 'firebase/auth';
@@ -6,14 +6,20 @@ import { useNavigate } from 'react-router-dom';
 
 export default function GoogleButton() {
   const navigate = useNavigate();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      // No manual navigation here; the Login page has a useEffect that watches 
-      // the auth state and redirects to /dashboard once the user is detected.
+      // Explicitly navigate to dashboard after successful sign-in
+      // although AuthContext useEffect will also catch this.
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error signing in with Google:', error);
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
@@ -22,9 +28,11 @@ export default function GoogleButton() {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={handleGoogleSignIn}
+      disabled={isSigningIn}
       type="button"
-      className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 transition-all group"
+      className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 transition-all group disabled:opacity-50"
     >
+
       <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
         <path
           fill="currentColor"
