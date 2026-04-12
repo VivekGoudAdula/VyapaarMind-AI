@@ -57,16 +57,20 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
         msg["To"] = to_email
         msg.attach(MIMEText(body_html, "html"))
 
+        print(f"📡 [MAIL] Connecting to SMTP Server (Port 587)...")
         context = ssl.create_default_context()
-        # Use Port 465 with SMTP_SSL for Gmail
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls(context=context)
+            print(f"🔑 [MAIL] Authenticating {sender_email}...")
             server.login(sender_email, sender_password)
+            print(f"🚀 [MAIL] Sending message to {to_email}...")
             server.send_message(msg)
             
         print(f"📧 [SYSTEM] DISPATCH SUCCESS TO: {to_email}")
     except Exception as e:
         print(f"❌ [MAIL DISPATCH ERROR] {e}")
-        raise e # Re-raise for the test endpoint to catch
+        raise e
+ # Re-raise for the test endpoint to catch
 
 
 def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
@@ -93,14 +97,19 @@ def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
             payload.add_header('Content-Disposition', 'attachment', filename="Invoice.pdf")
             msg.attach(payload)
 
+        print(f"📡 [INVOICE] Connecting to SMTP Server (Port 587)...")
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls(context=context)
+            print(f"🔑 [INVOICE] Authenticating {sender_email}...")
             server.login(sender_email, sender_password)
+            print(f"🚀 [INVOICE] Dispatching PDF to {to_email}...")
             server.send_message(msg)
         
         print(f"📧 [SYSTEM] INVOICE EMAIL SENT TO: {to_email}")
     except Exception as e:
         print(f"❌ [MAIL ERROR] {e}")
+
 
 
 def run_alert_engine_task(user_id: str, transaction_id: int = None):
