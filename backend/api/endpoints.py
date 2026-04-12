@@ -16,12 +16,13 @@ from dotenv import load_dotenv
 from groq import Groq
 from core.engine import VyapaarEngine
 
-from dotenv import load_dotenv
-import os
-
-# Use absolute path to ensure .env is loaded regardless of execution context
+# Use absolute path to ensure .env is loaded reliably for local dev
 env_path = os.path.join(os.path.dirname(__file__), "../../.env")
-load_dotenv(env_path, override=True)
+if os.path.exists(env_path):
+    load_dotenv(env_path, override=False) # Don't override server-level env vars
+else:
+    load_dotenv() # Fallback to standard loading
+
 
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", "gsk_test_key_here"))
 
@@ -38,7 +39,7 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
     sender_email, sender_password = get_email_credentials()
 
     if not sender_email or not sender_password or sender_email == "your_email@gmail.com":
-        print(f"⚠️ [MOCK] Email would be sent to {to_email}")
+        print(f"⚠️ [MOCK] Email would be sent to {to_email} (Missing credentials)")
         return
 
     # Determine subject based on severity
@@ -57,13 +58,16 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
         msg.attach(MIMEText(body_html, "html"))
 
         context = ssl.create_default_context()
+        # Use Port 465 with SMTP_SSL for Gmail
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
             server.login(sender_email, sender_password)
             server.send_message(msg)
             
-        print(f"📧 [SYSTEM] BUNDLED EMAIL SENT TO: {to_email}")
+        print(f"📧 [SYSTEM] DISPATCH SUCCESS TO: {to_email}")
     except Exception as e:
-        print(f"❌ [MAIL ERROR] {e}")
+        print(f"❌ [MAIL DISPATCH ERROR] {e}")
+        raise e # Re-raise for the test endpoint to catch
+
 
 def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
     sender_email, sender_password = get_email_credentials()
@@ -192,8 +196,12 @@ def run_alert_engine_task(user_id: str, transaction_id: int = None):
 
         # 5. Build Bundled HTML Email
         user = db.query(models.User).filter(models.User.firebase_uid == user_id).first()
-        user_email = user.email if user else "test@example.com"
-        user_name = user.name if user else "Vyapaari"
+        if not user:
+            print(f"⚠️ [ENGINE] Could not find user {user_id} in DB. Skipping email dispatch.")
+            return
+
+        user_email = user.email
+        user_name = user.name or "Vyapaari"
 
         alerts_html = ""
         for a in alerts:
@@ -246,7 +254,11 @@ def run_alert_engine_task(user_id: str, transaction_id: int = None):
         """
 
         print(f"[SYSTEM] ATTEMPTING EMAIL DISPATCH TO: {user_email}")
-        send_email(user_email, "", email_template, len(alerts), main_severity)
+        try:
+            send_email(user_email, "", email_template, len(alerts), main_severity)
+        except Exception:
+            pass # Connection errors are already logged in send_email
+
     except Exception as e:
         print(f"❌ [ENGINE TASK ERROR] {e}")
     finally:
@@ -841,3 +853,31 @@ def maya_chat(request: schemas.MayaChatRequest):
     except Exception as e:
         print(f"❌ [MAYA ERROR] {e}")
         return {"response": f"Look, {request.user_name}, my brain is currently recalculating your inevitable bankruptcy. Ask me again in a minute."}
+
+@router.get("/debug/email-status")
+def debug_email_status():
+    """Diagnostic endpoint to check if env vars are loaded correctly."""
+    email = os.getenv("EMAIL_USER")
+    pwd = os.getenv("EMAIL_PASSWORD")
+    
+    return {
+        "email_user_set": bool(email and email != "your_email@gmail.com"),
+        "email_password_set": bool(pwd and pwd != ""),
+        "email_user": email[:3] + "****" if email else "None",
+        "frontend_url": os.getenv("FRONTEND_URL", "default-local"),
+        "env_check": "Production" if not os.path.exists(env_path) else "Local (.env exists)"
+    }
+
+@router.post("/debug/test-send")
+def debug_test_send(email_target: str):
+    """Manually trigger a test email to verify SMTP configuration."""
+    try:
+        send_email(
+            to_email=email_target,
+            subject="MAYA Diagnostic: Connection Test",
+            body_html="<h1>Connection Verified</h1><p>If you see this, your SMTP configuration is functional.</p>",
+            severity="Positive"
+        )
+        return {"status": "success", "message": f"Test email dispatched to {email_target}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
