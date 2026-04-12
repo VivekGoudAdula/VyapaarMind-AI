@@ -27,7 +27,21 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", "gsk_test_key_here"))
 
 router = APIRouter()
 
+import ssl
+
+def get_email_credentials():
+    sender_email = os.getenv("EMAIL_USER")
+    sender_password = os.getenv("EMAIL_PASSWORD", "").replace(" ", "").strip()
+    return sender_email, sender_password
+
 def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
+    sender_email, sender_password = get_email_credentials()
+
+    if not sender_email or not sender_password or sender_email == "your_email@gmail.com":
+        print(f"⚠️ [MOCK] Email would be sent to {to_email}")
+        return
+
+    # Determine subject based on severity
     if severity == "High":
         full_subject = f"🚨 CRITICAL: {alert_count} Financial Risks Detected - VyapaarMind"
     elif severity == "Positive":
@@ -35,35 +49,24 @@ def send_email(to_email, subject, body_html, alert_count=1, severity="High"):
     else:
         full_subject = f"⚠️ VyapaarMind Intelligence Update"
 
-    sender_email = os.getenv("EMAIL_USER")
-    sender_password = os.getenv("EMAIL_PASSWORD", "").replace(" ", "").strip()
-
-    if not sender_email or not sender_password or sender_email == "your_email@gmail.com":
-        print(f"⚠️ [MOCK] Email would be sent to {to_email}")
-        return
-
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = full_subject
         msg["From"] = f"VyapaarMind AI <{sender_email}>"
         msg["To"] = to_email
-
-        # Attach HTML content
         msg.attach(MIMEText(body_html, "html"))
 
-        # Use SMTP_SSL on port 465 for better compatibility with cloud providers
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
-        
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+            
         print(f"📧 [SYSTEM] BUNDLED EMAIL SENT TO: {to_email}")
     except Exception as e:
         print(f"❌ [MAIL ERROR] {e}")
 
 def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
-    sender_email = os.getenv("EMAIL_USER")
-    sender_password = os.getenv("EMAIL_PASSWORD", "").replace(" ", "").strip()
+    sender_email, sender_password = get_email_credentials()
 
     if not sender_email or not sender_password or sender_email == "your_email@gmail.com":
         print(f"⚠️ [MOCK] Invoice Email would be sent to {to_email}")
@@ -74,13 +77,9 @@ def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
         msg["Subject"] = subject
         msg["From"] = f"VyapaarMind AI <{sender_email}>"
         msg["To"] = to_email
-
-        # Attach HTML body
         msg.attach(MIMEText(body_html, "html"))
 
-        # Attach PDF if provided
         if pdf_base64:
-            # pdf_base64 might contain 'data:application/pdf;base64,' prefix
             if "base64," in pdf_base64:
                 pdf_base64 = pdf_base64.split("base64,")[1]
             
@@ -90,15 +89,15 @@ def send_invoice_email(to_email, subject, body_html, pdf_base64=None):
             payload.add_header('Content-Disposition', 'attachment', filename="Invoice.pdf")
             msg.attach(payload)
 
-        # Use SMTP_SSL on port 465 for better compatibility with cloud providers
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
         
         print(f"📧 [SYSTEM] INVOICE EMAIL SENT TO: {to_email}")
     except Exception as e:
         print(f"❌ [MAIL ERROR] {e}")
+
 
 def run_alert_engine_task(user_id: str, transaction_id: int = None):
     """
